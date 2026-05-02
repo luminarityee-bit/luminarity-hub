@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMINARITY · Hub</title>
+<style>
+:root{
+  --bg:#0f172a;--bg2:#0b1220;--card:#1e293b;--card2:#172033;--border:#334155;
+  --accent:#38bdf8;--accent2:#0ea5e9;--green:#22c55e;--red:#ef4444;
+  --yellow:#f59e0b;--purple:#a78bfa;--orange:#fb923c;
+  --text:#e2e8f0;--muted:#94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:radial-gradient(1200px 600px at 50% -10%,#1e3a5f 0%,var(--bg) 60%);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;overflow:hidden;}
+
+/* ===== LOGIN ===== */
+#login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;}
+.login-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.login-logo{width:64px;height:64px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0f172a;font-size:28px;margin:0 auto 20px;}
+.login-title{text-align:center;font-size:1.3rem;font-weight:700;margin-bottom:6px;}
+.login-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:24px;}
+.login-card label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+.login-card input{width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;letter-spacing:.1em;text-align:center;}
+.login-card input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.15);}
+.login-card button{margin-top:16px;width:100%;padding:12px;background:var(--accent);color:#0f172a;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.login-card button:hover{opacity:.9;}
+.login-err{margin-top:12px;text-align:center;color:var(--red);font-size:13px;min-height:18px;}
+.login-foot{margin-top:20px;text-align:center;color:var(--muted);font-size:11px;}
+
+/* ===== APP ===== */
+#app{display:none;flex-direction:column;height:100vh;}
+.topbar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;gap:14px;flex-shrink:0;}
+.topbar .logo{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0f172a;font-size:16px;}
+.topbar .brand{font-weight:700;font-size:1rem;}
+.topbar .sep{flex:1;}
+.topbar .user-pill{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:13px;}
+.topbar .user-pill .role{color:var(--accent);font-weight:600;}
+.topbar .home-btn,.topbar .logout-btn{padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all .15s;}
+.topbar .home-btn:hover{border-color:var(--accent);color:var(--accent);}
+.topbar .logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+.main{flex:1;overflow:auto;}
+
+/* ===== MENU ===== */
+#menu{padding:36px 24px;max-width:1200px;margin:0 auto;}
+.menu-hello{text-align:center;margin-bottom:32px;}
+.menu-hello h1{font-size:1.8rem;font-weight:700;margin-bottom:6px;}
+.menu-hello p{color:var(--muted);font-size:14px;}
+.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;}
+.tile{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:10px;text-align:left;color:inherit;}
+.tile:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.4);}
+.tile.locked{opacity:.5;cursor:not-allowed;}
+.tile.locked:hover{transform:none;border-color:var(--border);box-shadow:none;}
+.tile-ico{width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+.tile-ico.c1{background:rgba(56,189,248,.15);color:var(--accent);}
+.tile-ico.c2{background:rgba(34,197,94,.15);color:var(--green);}
+.tile-ico.c3{background:rgba(245,158,11,.15);color:var(--yellow);}
+.tile-ico.c4{background:rgba(167,139,250,.15);color:var(--purple);}
+.tile-ico.c5{background:rgba(251,146,60,.15);color:var(--orange);}
+.tile-title{font-size:1.05rem;font-weight:700;}
+.tile-desc{font-size:13px;color:var(--muted);line-height:1.5;}
+.tile-tag{margin-top:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.tile.locked .tile-tag{color:var(--red);}
+
+/* ===== IFRAME VIEW ===== */
+#frameWrap{display:none;width:100%;height:100%;background:#fff;}
+#frameWrap iframe{width:100%;height:100%;border:0;display:block;}
+
+@media (max-width:600px){
+  .topbar{padding:8px 12px;gap:8px;}
+  .topbar .brand{display:none;}
+  #menu{padding:24px 16px;}
+  .menu-hello h1{font-size:1.4rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================== -->
+<!-- LOGIN VIEW                                                       -->
+<!-- ============================================================== -->
+<div id="login">
+  <div class="login-card">
+    <div class="login-logo">L</div>
+    <div class="login-title">LUMINARITY Hub</div>
+    <div class="login-sub">Εισάγετε τον κωδικό πρόσβασης</div>
+    <label for="pwd">Κωδικός</label>
+    <input id="pwd" type="password" autocomplete="off" placeholder="••••••" autofocus>
+    <button id="loginBtn">Είσοδος</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-foot">© LUMINARITY · Internal use only</div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- APP VIEW                                                         -->
+<!-- ============================================================== -->
+<div id="app">
+  <div class="topbar">
+    <div class="logo">L</div>
+    <div class="brand">LUMINARITY Hub</div>
+    <div class="sep"></div>
+    <div class="user-pill">Ρόλος: <span class="role" id="userRole">—</span></div>
+    <button class="home-btn" id="popBtn" style="display:none" title="Άνοιγμα σε νέο παράθυρο">⧉ Νέο παράθυρο</button>
+    <button class="home-btn" id="homeBtn" style="display:none">← Μενού</button>
+    <button class="logout-btn" id="logoutBtn">Αποσύνδεση</button>
+  </div>
+
+  <div class="main">
+    <!-- Tile menu -->
+    <div id="menu">
+      <div class="menu-hello">
+        <h1>Καλώς ήρθες <span id="userLabel"></span></h1>
+        <p>Επίλεξε ένα από τα διαθέσιμα εργαλεία</p>
+      </div>
+      <div class="tile-grid" id="tileGrid"></div>
+    </div>
+
+    <!-- Iframe wrapper -->
+    <div id="frameWrap">
+      <iframe id="frame" allow="clipboard-write *; clipboard-read *; fullscreen *"></iframe>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ==============================================================
+   CONFIG  —  Άλλαξε ΕΔΩ κωδικούς και πρόσβαση
+   ============================================================== */
+
+// Κάθε dashboard έχει ένα id, τίτλο, εικονίδιο, σύντομη περιγραφή
+// και path (relative στο φάκελο που κάθεται το hub.html).
+const DASHBOARDS = {
+  central: {
+    title: 'Κεντρικό Dashboard',
+    desc:  'Ανάλυση αμοιβών ΔΕΗ — KPIs, αναζήτηση, εξαγωγές.',
+    icon:  '📊',
+    color: 'c1',
+    src:   'luminarity dashboard/dashboard_luminarity.html'
+  },
+  kpi: {
+    title: 'KPI Report 2026',
+    desc:  'Συνολικό report απόδοσης για το έτος.',
+    icon:  '📈',
+    color: 'c2',
+    src:   'report analysis/KPI_Report_LUMINARITY_2026.html'
+  },
+  efarmogi: {
+    title: 'ΕΦΑΡΜΟΓΗ — Συμβόλαια ΕΟ',
+    desc:  'Συμπλήρωση συμβολαίων & ειδικών όρων ΔΕΗ.',
+    icon:  '📝',
+    color: 'c4',
+    src:   'ΕΦΑΡΜΟΓΗ/fillContract.html'
+  },
+  master: {
+    title: 'Master Αιτήσεων',
+    desc:  'Αιτήσεις που εκκρεμούν (ΔΕΔΔΗΕ + Gmail).',
+    icon:  '📋',
+    color: 'c5',
+    // Από Έγγραφα/εχελακια/ → Επιφάνεια εργασίας/antigravity/...
+    src:   '../../Επιφάνεια εργασίας/antigravity/alex-aitiseis/outputs/dashboard_master_report.html'
+  }
+};
+
+// Ρόλοι: ποιος βλέπει τι. Άλλαξε allowed ή πρόσθεσε νέους ρόλους.
+const ROLES = {
+  admin:      { label:'Διαχειριστής', allowed:['central','kpi','efarmogi','master'] },
+  backoffice: { label:'Back Office',  allowed:['efarmogi','master'] }
+};
+
+// Κωδικοί → ρόλος. Άλλαξε τους ΕΔΩ.
+const USERS = {
+  'LUMI0000': { role:'admin',      name:'Admin' },
+  'BO1234':   { role:'backoffice', name:'Back Office' }
+};
+
+/* ==============================================================
+   LOGIC
+   ============================================================== */
+const $ = (id) => document.getElementById(id);
+let currentUser = null;
+
+// Persistence (sessionStorage = clears όταν κλείνει το tab)
+function saveSession(code){ try{ sessionStorage.setItem('hub_code', code); }catch(e){} }
+function loadSession(){ try{ return sessionStorage.getItem('hub_code'); }catch(e){ return null; } }
+function clearSession(){ try{ sessionStorage.removeItem('hub_code'); }catch(e){} }
+
+function tryLogin(code){
+  const u = USERS[code];
+  if (!u) return false;
+  currentUser = { code, ...u, role: ROLES[u.role] ? u.role : null };
+  if (!currentUser.role) return false;
+  saveSession(code);
+  showApp();
+  return true;
+}
+
+function logout(){
+  clearSession();
+  currentUser = null;
+  $('app').style.display = 'none';
+  $('login').style.display = 'flex';
+  $('pwd').value = '';
+  $('loginErr').textContent = '';
+  $('pwd').focus();
+}
+
+function showApp(){
+  $('login').style.display = 'none';
+  $('app').style.display = 'flex';
+  $('userRole').textContent = ROLES[currentUser.role].label;
+  $('userLabel').textContent = currentUser.name;
+  renderMenu();
+  showMenu();
+}
+
+function renderMenu(){
+  const grid = $('tileGrid');
+  grid.innerHTML = '';
+  const allowed = new Set(ROLES[currentUser.role].allowed);
+  for (const [id, d] of Object.entries(DASHBOARDS)){
+    const ok = allowed.has(id);
+    const tile = document.createElement(ok ? 'button' : 'div');
+    tile.className = 'tile' + (ok ? '' : ' locked');
+    const tag = !ok ? '🔒 Χωρίς πρόσβαση' : (d.newWindow ? '⧉ Νέο παράθυρο' : '▸ Άνοιγμα');
+    tile.innerHTML = `
+      <div class="tile-ico ${d.color}">${d.icon}</div>
+      <div class="tile-title">${d.title}</div>
+      <div class="tile-desc">${d.desc}</div>
+      <div class="tile-tag">${tag}</div>
+    `;
+    if (ok) tile.addEventListener('click', () => openDashboard(id));
+    grid.appendChild(tile);
+  }
+}
+
+let currentSrc = null;
+function openDashboard(id){
+  const d = DASHBOARDS[id];
+  if (!d) return;
+  // encodeURI για να χειριστεί ελληνικά γράμματα και κενά στο path
+  const url = encodeURI(d.src);
+  // Dashboards που χρειάζονται top-level browsing context (π.χ. ΕΦΑΡΜΟΓΗ —
+  // τα date pickers σε iframe + file:// μπλοκάρονται από browser security policies).
+  if (d.newWindow) { window.open(url, '_blank'); return; }
+  currentSrc = url;
+  $('frame').src = currentSrc;
+  $('menu').style.display = 'none';
+  $('frameWrap').style.display = 'block';
+  $('homeBtn').style.display = 'inline-block';
+  $('popBtn').style.display = 'inline-block';
+  document.title = `LUMINARITY · ${d.title}`;
+}
+
+function showMenu(){
+  $('frame').src = 'about:blank';
+  currentSrc = null;
+  $('frameWrap').style.display = 'none';
+  $('menu').style.display = 'block';
+  $('homeBtn').style.display = 'none';
+  $('popBtn').style.display = 'none';
+  document.title = 'LUMINARITY · Hub';
+}
+
+/* ==============================================================
+   EVENTS
+   ============================================================== */
+$('loginBtn').addEventListener('click', () => {
+  const code = $('pwd').value.trim();
+  if (!code) { $('loginErr').textContent = 'Συμπλήρωσε κωδικό.'; return; }
+  if (!tryLogin(code)) {
+    $('loginErr').textContent = 'Λάθος κωδικός.';
+    $('pwd').value = '';
+    $('pwd').focus();
+  }
+});
+$('pwd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') $('loginBtn').click();
+});
+$('logoutBtn').addEventListener('click', logout);
+$('homeBtn').addEventListener('click', showMenu);
+$('popBtn').addEventListener('click', () => {
+  if (currentSrc) window.open(currentSrc, '_blank');
+});
+
+// Auto-login αν υπάρχει σωστός κωδικός στο sessionStorage
+(function init(){
+  const saved = loadSession();
+  if (saved && USERS[saved]) tryLogin(saved);
+})();
+</script>
+</body>
+</html>
