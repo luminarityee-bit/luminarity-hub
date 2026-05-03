@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Report ανά Master Dealer – LUMINARITY</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<style>
+:root{
+  --bg:#0f172a;--card:#1e293b;--border:#334155;
+  --accent:#38bdf8;--green:#22c55e;--red:#ef4444;
+  --yellow:#f59e0b;--purple:#a78bfa;--orange:#fb923c;
+  --text:#e2e8f0;--muted:#94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;}
+h1{font-size:1.4rem;font-weight:700;}
+h2{font-size:.95rem;font-weight:600;color:var(--accent);}
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;}
+.logo{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0f172a;font-size:18px;}
+.main{max-width:1600px;margin:0 auto;padding:24px;}
+
+/* UPLOAD */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;}
+.upload-card{background:var(--card);border:2px dashed var(--border);border-radius:12px;padding:18px;transition:border-color .2s;}
+.upload-card:hover{border-color:var(--accent);}
+.upload-card h2{margin-bottom:6px;}
+.upload-card p{color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.5;}
+.upload-card input[type=file]{width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;}
+.file-tag{display:inline-flex;align-items:center;gap:6px;background:#1e3a5f;border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:12px;margin-top:10px;}
+.file-tag .badge{background:var(--accent);color:#0f172a;border-radius:4px;padding:1px 7px;font-weight:700;font-size:11px;}
+
+/* BUTTONS */
+.btn-run{display:block;width:100%;padding:12px;background:var(--accent);color:#0f172a;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:20px;transition:opacity .2s;}
+.btn-run:disabled{opacity:.4;cursor:not-allowed;}
+.btn-run:not(:disabled):hover{opacity:.85;}
+.btn{padding:7px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-green{background:#14532d;border-color:var(--green);color:var(--green);}
+.btn-green:hover{background:var(--green);color:#0f172a;}
+.btn-blue{background:#0c2e4a;border-color:var(--accent);color:var(--accent);}
+.btn-blue:hover{background:var(--accent);color:#0f172a;}
+.btn-purple{background:#2e1065;border-color:var(--purple);color:var(--purple);}
+.btn-purple:hover{background:var(--purple);color:#0f172a;}
+.btn-outline{background:transparent;border-color:var(--border);color:var(--muted);}
+.btn-outline:hover{border-color:var(--accent);color:var(--text);}
+
+/* LOG */
+#log{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);margin-bottom:20px;display:none;max-height:160px;overflow-y:auto;}
+#log.on{display:block;}
+#log .ok{color:var(--green);}#log .warn{color:var(--yellow);}#log .err{color:var(--red);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:20px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.kpi .lbl{font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;}
+.kpi .val{font-size:1.6rem;font-weight:700;}
+.kpi .sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.kv-accent .val{color:var(--accent);}.kv-green .val{color:var(--green);}
+.kv-yellow .val{color:var(--yellow);}.kv-red .val{color:var(--red);}
+.kv-purple .val{color:var(--purple);}.kv-orange .val{color:var(--orange);}
+
+/* MASTER CARDS */
+.master-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
+.mc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:all .15s;}
+.mc:hover,.mc.sel{border-color:var(--accent);background:#162030;}
+.mc-name{font-weight:700;margin-bottom:10px;font-size:1rem;color:var(--accent);display:flex;align-items:center;justify-content:space-between;}
+.mc-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;}
+.mc-stat .sv{font-size:1.05rem;font-weight:700;}
+.mc-stat .sl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.mc-stat.g .sv{color:var(--green);}
+.mc-stat.y .sv{color:var(--yellow);}
+.mc-stat.r .sv{color:var(--red);}
+.mc-stat.b .sv{color:var(--accent);}
+.mc-bar{height:6px;background:var(--border);border-radius:3px;margin-top:10px;overflow:hidden;display:flex;}
+.mc-bar > div{height:100%;}
+.mc-bar .b-g{background:var(--green);}
+.mc-bar .b-y{background:var(--yellow);}
+.mc-bar .b-r{background:var(--red);}
+
+/* TOOLBAR */
+.toolbar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px;}
+.fg{display:flex;flex-direction:column;gap:4px;min-width:170px;}
+.fg label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.fg select,.fg input{background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:13px;}
+.fg select:focus,.fg input:focus{outline:none;border-color:var(--accent);}
+.toolbar .spacer{flex:1;}
+
+/* MULTI-SELECT */
+.ms{position:relative;}
+.ms-btn{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 28px 6px 10px;font-size:13px;cursor:pointer;text-align:left;position:relative;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ms-btn:hover{border-color:var(--accent);}
+.ms-btn::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px;}
+.ms.active .ms-btn{border-color:var(--accent);}
+.ms-panel{display:none;position:absolute;top:100%;left:0;right:0;z-index:200;background:var(--card);border:1px solid var(--accent);border-radius:6px;margin-top:4px;box-shadow:0 8px 22px rgba(0,0,0,.55);min-width:240px;}
+.ms.open .ms-panel{display:block;}
+.ms-search{width:100%;padding:7px 10px;background:var(--bg);border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;outline:none;}
+.ms-list{max-height:240px;overflow-y:auto;padding:4px 0;}
+.ms-item{display:flex;align-items:center;gap:8px;padding:5px 10px;cursor:pointer;font-size:12.5px;user-select:none;}
+.ms-item:hover{background:#1e2d4a;}
+.ms-item input{cursor:pointer;accent-color:var(--accent);}
+.ms-actions{padding:6px 10px;border-top:1px solid var(--border);display:flex;gap:10px;font-size:11px;}
+.ms-actions a{color:var(--accent);cursor:pointer;text-decoration:none;}
+.ms-actions a:hover{text-decoration:underline;}
+.ms-count{background:var(--accent);color:#0f172a;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px;}
+
+/* EXPORT MENU */
+.export-bar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
+.export-bar .title{font-weight:600;}
+.export-bar .sub{font-size:11px;color:var(--muted);}
+
+/* TABS */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;flex-wrap:wrap;}
+.tab{padding:8px 18px;cursor:pointer;border-radius:8px 8px 0 0;color:var(--muted);font-weight:500;border:1px solid transparent;border-bottom:none;transition:all .15s;}
+.tab.active{background:var(--card);color:var(--accent);border-color:var(--border);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.tbadge{background:var(--orange);color:#0f172a;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:5px;}
+
+/* TABLE */
+.tbl-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.tbl-wrap table{width:100%;border-collapse:collapse;}
+.tbl-wrap thead th{background:#1a2744;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;}
+.tbl-wrap thead th:hover{color:var(--accent);}
+.tbl-wrap thead th.sa::after{content:' ▲';color:var(--accent);}
+.tbl-wrap thead th.sd::after{content:' ▼';color:var(--accent);}
+.tbl-wrap tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+.tbl-wrap tbody tr:last-child{border-bottom:none;}
+.tbl-wrap tbody tr:hover{background:#1e2d4a;}
+.tbl-wrap td{padding:8px 12px;font-size:12.5px;}
+.scroll{max-height:620px;overflow-y:auto;}
+
+/* BADGES */
+.bdg{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;}
+.bdg-green{background:#14532d;color:var(--green);}
+.bdg-yellow{background:#78350f;color:#fcd34d;}
+.bdg-red{background:#7f1d1d;color:#fca5a5;}
+.bdg-blue{background:#0c2e4a;color:var(--accent);}
+.bdg-purple{background:#2e1065;color:var(--purple);}
+.bdg-orange{background:#431407;color:#fdba74;}
+.bdg-grey{background:#374151;color:#cbd5e1;}
+.upd-tag{font-size:10px;color:var(--orange);font-weight:700;margin-left:4px;}
+.was{font-size:10px;color:var(--muted);text-decoration:line-through;display:block;}
+
+/* DUPLICATE GROUPS */
+.dup-grp-1{background:rgba(251,146,60,.12);}
+.dup-grp-2{background:rgba(168,85,247,.12);}
+.dup-grp-3{background:rgba(56,189,248,.12);}
+.dup-grp-4{background:rgba(34,197,94,.12);}
+.dup-grp-5{background:rgba(245,158,11,.12);}
+.dup-grp-1 td:first-child,.dup-grp-2 td:first-child,.dup-grp-3 td:first-child,.dup-grp-4 td:first-child,.dup-grp-5 td:first-child{border-left:3px solid var(--orange);}
+.dup-grp-2 td:first-child{border-left-color:var(--purple);}
+.dup-grp-3 td:first-child{border-left-color:var(--accent);}
+.dup-grp-4 td:first-child{border-left-color:var(--green);}
+.dup-grp-5 td:first-child{border-left-color:var(--yellow);}
+.dup-row-flag{background:rgba(251,146,60,.08)!important;}
+.dup-icon{color:var(--orange);font-size:11px;font-weight:700;margin-right:4px;}
+
+/* PAGER */
+.pager{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card);border-top:1px solid var(--border);}
+.pager span{font-size:12px;color:var(--muted);}
+.pager-btns{display:flex;gap:6px;}
+.pager-btns button{padding:4px 12px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:12px;}
+.pager-btns button:hover:not(:disabled){border-color:var(--accent);}
+.pager-btns button:disabled{opacity:.3;cursor:default;}
+
+/* CHARTS */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;}
+.chart-card h3{font-size:12px;color:var(--muted);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em;}
+.chart-card canvas{max-height:300px;}
+
+@media(max-width:1100px){.upload-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:900px){.upload-grid,.charts-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">L</div>
+  <div>
+    <h1>Dashboard Report ανά Master Dealer</h1>
+    <div style="font-size:12px;color:var(--muted)">LUMINARITY – Ανάλυση Αιτήσεων Έτους με Ενημέρωση Status από Daily Report ΔΕΗ</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- UPLOAD -->
+  <div class="upload-grid">
+    <div class="upload-card">
+      <h2>📂 ΑΡΧΕΙΟ LUMINARITY 2026 2</h2>
+      <p>Αρχείο με τα φύλλα ανά μήνα (ΙΑΝΟΥΑΡΙΟΣ, ΦΕΒΡΟΥΑΡΙΟΣ, ΜΑΡΤΙΟΣ…) και το φύλλο <strong>ΛΙΣΤΕΣ</strong> με το mapping Master Dealer ↔ Dealer.</p>
+      <input type="file" id="fileLum" accept=".xlsx,.xls,.xlsm" onchange="loadLum(this)">
+      <div id="tagLum"></div>
+    </div>
+    <div class="upload-card">
+      <h2>📋 Daily Report ΔΕΗ</h2>
+      <p>Αρχείο <strong>Daily Report_ΔΔ.ΜΜ.ΕΕΕΕ_LUMINARITY.xlsx</strong> με φύλλα <em>Data</em>, <em>Missing Docs</em>, <em>Αναμονή Απάντησης Πελάτη</em>. Από εδώ ενημερώνονται τα status της ΔΕΗ.</p>
+      <input type="file" id="fileDaily" accept=".xlsx,.xls" onchange="loadDaily(this)">
+      <div id="tagDaily"></div>
+    </div>
+
+    <div class="upload-card" style="border-color:#a78bfa;">
+      <h2 style="color:#a78bfa;">🔍 Extra Λίστα Παροχών (προαιρετικό)</h2>
+      <p>Φόρτωσε ένα οποιοδήποτε <strong>.xlsx</strong> με στήλη Αρ. Παροχής. Θα προστεθούν στήλες <em>Status (Daily Report)</em>, <em>Reason</em>, <em>Ενημερώθηκε</em> και θα κατέβει το ενημερωμένο αρχείο.</p>
+      <input type="file" id="fileExtra" accept=".xlsx,.xls,.csv" onchange="loadExtra(this)">
+      <div id="tagExtra"></div>
+      <div id="extraColPicker" style="display:none;margin-top:10px;background:var(--bg);border:1px solid var(--yellow);border-radius:8px;padding:10px;">
+        <div style="color:var(--yellow);font-size:11px;font-weight:700;margin-bottom:6px;">⚠️ Επίλεξε τη στήλη με Αρ. Παροχής:</div>
+        <select id="extraColSel" onchange="onExtraColPick()" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 10px;font-size:12px;">
+          <option value="">— επιλέξτε —</option>
+        </select>
+      </div>
+      <button id="btnExtraExport" class="btn btn-purple" style="display:none;width:100%;margin-top:10px;" onclick="exportExtraEnriched()">⚡ Ενημέρωση & Λήψη Αρχείου</button>
+    </div>
+
+  </div>
+
+  <button class="btn-run" id="btnRun" onclick="analyze()" disabled>⚡ Εκτέλεση Ανάλυσης</button>
+  <div id="log"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid" style="display:none">
+    <div class="kpi kv-accent"><div class="lbl">Συνολικές Αιτήσεις</div><div class="val" id="kTotal">–</div><div class="sub" id="kTotalSub"></div></div>
+    <div class="kpi kv-green"><div class="lbl">Closed</div><div class="val" id="kClosed">–</div><div class="sub" id="kClosedSub"></div></div>
+    <div class="kpi kv-yellow"><div class="lbl">Εκκρεμότητες</div><div class="val" id="kPending">–</div><div class="sub" id="kPendingSub"></div></div>
+    <div class="kpi kv-red"><div class="lbl">Ακυρωμένες</div><div class="val" id="kCancel">–</div><div class="sub" id="kCancelSub"></div></div>
+    <div class="kpi kv-orange"><div class="lbl">Δεν βρέθηκαν στο ρεπόρτ</div><div class="val" id="kMissing">–</div><div class="sub" id="kMissingSub"></div></div>
+    <div class="kpi kv-purple"><div class="lbl">Ενημερώθηκαν Status</div><div class="val" id="kUpd">–</div><div class="sub" id="kUpdSub"></div></div>
+    <div class="kpi kv-accent"><div class="lbl">Master Dealers</div><div class="val" id="kMast">–</div><div class="sub" id="kMastSub"></div></div>
+  </div>
+
+  <!-- MASTER CARDS -->
+  <div class="master-cards" id="masterCards" style="display:none"></div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar" id="toolbar" style="display:none">
+    <div class="fg"><label>Master Dealer</label><div class="ms" id="msMaster"></div></div>
+    <div class="fg"><label>Dealer</label><div class="ms" id="msDealer"></div></div>
+    <div class="fg"><label>Μήνας</label><div class="ms" id="msMonth"></div></div>
+    <div class="fg"><label>Τύπος Παροχής</label><div class="ms" id="msType"></div></div>
+    <div class="fg"><label>Status</label><div class="ms" id="msStatus"></div></div>
+    <div class="fg"><label>Αναζήτηση</label><input type="text" id="fSearch" placeholder="Όνομα / ΑΦΜ / Παροχή" oninput="applyFilters()"></div>
+    <button class="btn btn-outline" onclick="resetFilters()">✕ Καθαρισμός</button>
+  </div>
+
+  <!-- EXPORT BAR -->
+  <div class="export-bar" id="exportBar" style="display:none">
+    <div>
+      <div class="title">📤 Εξαγωγή Report</div>
+      <div class="sub">Μορφή ίδια με το αρχείο LUMINARITY · Status ενημερωμένα</div>
+    </div>
+    <button class="btn btn-purple" onclick="exportPerMasterFiles()">📁 ZIP – 1 αρχείο/Master</button>
+    <button class="btn btn-blue" onclick="exportPerDealerFiles()">👤 ZIP – 1 αρχείο/Dealer (επιλεγμένοι)</button>
+    <button class="btn btn-green" onclick="exportFiltered('detail')">📄 Συνολικό (φίλτρα)</button>
+    <button class="btn btn-outline" onclick="exportPerMaster()">📦 Workbook (sheets/Master)</button>
+    <div class="spacer"></div>
+    <div class="sub" id="filterInfo"></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabs" style="display:none">
+    <div class="tab active" data-tab="masters" onclick="switchTab('masters')">Σύνοψη ανά Master</div>
+    <div class="tab" data-tab="dealers" onclick="switchTab('dealers')">Σύνοψη ανά Dealer</div>
+    <div class="tab" data-tab="detail" onclick="switchTab('detail')">Αναλυτικός Πίνακας</div>
+    <div class="tab" data-tab="duplicates" onclick="switchTab('duplicates')">🔁 Διπλές <span id="dupBadge" class="tbadge" style="display:none"></span></div>
+    <div class="tab" data-tab="updates" onclick="switchTab('updates')">🔄 Status Updates <span id="updBadge" class="tbadge" style="display:none"></span></div>
+    <div class="tab" data-tab="charts" onclick="switchTab('charts')">Γραφήματα</div>
+  </div>
+
+  <!-- TAB MASTERS -->
+  <div class="tab-panel active" id="tab-masters">
+    <div class="tbl-wrap"><div class="scroll">
+      <table>
+        <thead><tr>
+          <th onclick="sortMasters('master')">Master</th>
+          <th onclick="sortMasters('total')">Σύνολο</th>
+          <th onclick="sortMasters('closed')">Closed</th>
+          <th onclick="sortMasters('pending')">Εκκρ.</th>
+          <th onclick="sortMasters('cancelled')">Ακυρ.</th>
+          <th onclick="sortMasters('missing')">Δεν Βρέθ.</th>
+          <th onclick="sortMasters('reuma')">Ρεύμα</th>
+          <th onclick="sortMasters('aerio')">Αέριο</th>
+          <th onclick="sortMasters('dealers')">Dealers</th>
+          <th onclick="sortMasters('updPct')">% Closed</th>
+        </tr></thead>
+        <tbody id="masterBody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- TAB DEALERS -->
+  <div class="tab-panel" id="tab-dealers">
+    <div class="tbl-wrap"><div class="scroll">
+      <table>
+        <thead><tr>
+          <th onclick="sortDealers('master')">Master</th>
+          <th onclick="sortDealers('dealer')">Dealer</th>
+          <th onclick="sortDealers('total')">Σύνολο</th>
+          <th onclick="sortDealers('closed')">Closed</th>
+          <th onclick="sortDealers('pending')">Εκκρ.</th>
+          <th onclick="sortDealers('cancelled')">Ακυρ.</th>
+          <th onclick="sortDealers('missing')">Δεν Βρέθ.</th>
+          <th onclick="sortDealers('reuma')">Ρεύμα</th>
+          <th onclick="sortDealers('aerio')">Αέριο</th>
+          <th onclick="sortDealers('updPct')">% Closed</th>
+        </tr></thead>
+        <tbody id="dealerBody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- TAB DETAIL -->
+  <div class="tab-panel" id="tab-detail">
+    <div class="tbl-wrap"><div class="scroll">
+      <table>
+        <thead><tr>
+          <th onclick="sortDetail('date')">Ημ/νία</th>
+          <th onclick="sortDetail('master')">Master</th>
+          <th onclick="sortDetail('dealer')">Dealer</th>
+          <th onclick="sortDetail('name')">Ονοματεπώνυμο</th>
+          <th onclick="sortDetail('afm')">ΑΦΜ</th>
+          <th onclick="sortDetail('supply')">Αρ. Παροχής</th>
+          <th onclick="sortDetail('type')">Τύπος</th>
+          <th onclick="sortDetail('appType')">Αίτηση</th>
+          <th onclick="sortDetail('program')">Πρόγραμμα</th>
+          <th onclick="sortDetail('status')">Status (ενημ.)</th>
+          <th onclick="sortDetail('month')">Μήνας</th>
+        </tr></thead>
+        <tbody id="detailBody"></tbody>
+      </table>
+    </div>
+    <div class="pager">
+      <span id="detailInfo"></span>
+      <div class="pager-btns">
+        <button onclick="changePage('detail',-1)" id="detPrev">‹</button>
+        <button onclick="changePage('detail',1)" id="detNext">›</button>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- TAB DUPLICATES -->
+  <div class="tab-panel" id="tab-duplicates">
+    <div style="background:var(--card);border:1px solid var(--orange);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:1.4rem">🔁</span>
+      <div><div style="font-weight:600;color:var(--orange)">Διπλές Καταχωρήσεις</div>
+      <div style="font-size:12px;color:var(--muted)">Ίδια παροχή για τον ίδιο πελάτη (ίδιο ΑΦΜ) έχει καταχωρηθεί >1 φορά. Χρωματισμένη οικογένεια ανά παροχή με ημ/νίες κάθε καταχώρησης.</div></div>
+    </div>
+    <div class="tbl-wrap"><div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Αρ. Παροχής</th><th>Πελάτης</th><th>ΑΦΜ</th>
+          <th>Ημ/νία</th><th>Μήνας</th><th>Master</th><th>Dealer</th>
+          <th>Status (ενημερωμένο)</th><th>Παλιό Status</th><th>Διάστημα</th>
+        </tr></thead>
+        <tbody id="dupBody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- TAB UPDATES -->
+  <div class="tab-panel" id="tab-updates">
+    <div style="background:var(--card);border:1px solid var(--orange);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;">
+      <span style="font-size:1.4rem">🔄</span>
+      <div><div style="font-weight:600;color:var(--orange)">Αιτήσεις με Ενημερωμένο Status</div>
+      <div style="font-size:12px;color:var(--muted)">Παροχές που βρέθηκαν στο Daily Report και άλλαξε το status τους από το αρχικό LUMINARITY.</div></div>
+    </div>
+    <div class="tbl-wrap"><div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Master</th><th>Dealer</th><th>Όνομα</th><th>Παροχή</th><th>Τύπος</th>
+          <th>Παλιό Status</th><th>Νέο Status (Daily Report)</th><th>Reason</th><th>Μήνας</th>
+        </tr></thead>
+        <tbody id="updBody"></tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <!-- TAB CHARTS -->
+  <div class="tab-panel" id="tab-charts">
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Αιτήσεις ανά Master Dealer</h3><canvas id="chMaster"></canvas></div>
+      <div class="chart-card"><h3>Status Breakdown (Σύνολο)</h3><canvas id="chStatus"></canvas></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Αιτήσεις ανά Μήνα</h3><canvas id="chMonth"></canvas></div>
+      <div class="chart-card"><h3>Top 15 Dealers</h3><canvas id="chDealer"></canvas></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><h3>Status ανά Master (stacked)</h3><canvas id="chMasterStatus"></canvas></div>
+      <div class="chart-card"><h3>Ρεύμα vs Αέριο</h3><canvas id="chType"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+
+// ── CONST ─────────────────────────────────────────────────────────
+const PAGE_SIZE = 80;
+const SKIP_SHEETS = new Set(['ΛΙΣΤΕΣ','LISTS','DASH_DATA','DASHBOARD','CHART']);
+const MONTHS_GR = ['ΙΑΝΟΥ','ΦΕΒΡΟ','ΜΑΡΤΙ','ΑΠΡΙΛ','ΜΑΙΟΣ','ΙΟΥΝΙ','ΙΟΥΛΙ','ΑΥΓΟΥ','ΣΕΠΤΕ','ΟΚΤΩΒ','ΝΟΕΜΒ','ΔΕΚΕΜ'];
+const MONTH_ORDER = {ΙΑΝΟΥΑΡΙΟΣ:1,ΦΕΒΡΟΥΑΡΙΟΣ:2,ΜΑΡΤΙΟΣ:3,ΑΠΡΙΛΙΟΣ:4,ΜΑΙΟΣ:5,ΙΟΥΝΙΟΣ:6,ΙΟΥΛΙΟΣ:7,ΑΥΓΟΥΣΤΟΣ:8,ΣΕΠΤΕΜΒΡΙΟΣ:9,ΟΚΤΩΒΡΙΟΣ:10,ΝΟΕΜΒΡΙΟΣ:11,ΔΕΚΕΜΒΡΙΟΣ:12};
+
+// ── STATE ─────────────────────────────────────────────────────────
+const S = {
+  lumWB: null,
+  allRows: [],     // raw rows from all sheets
+  lumRows: [],     // active set (deduped or not)
+  dailyMap: new Map(),
+  dailySource: '',
+  filtered: [],
+  masterAgg: [],
+  dealerAgg: [],
+  page: {detail:0},
+  sort: {
+    masters:{col:'total',dir:-1},
+    dealers:{col:'total',dir:-1},
+    detail:{col:'date',dir:-1}
+  },
+  charts: {},
+  selectedMaster: '',
+  dedupOn: true,
+  dupCount: 0,
+  extraWB: null,
+  extraSheet: '',
+  extraHeaders: [],
+  extraRows: [],
+  extraColIdx: -1,
+  extraFileName: '',
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────
+function norm(v){ if(v==null) return ''; let s=String(v).trim(); if(/^\d+\.0+$/.test(s)) s=s.replace(/\.0+$/,''); return s.replace(/\s+/g,' '); }
+function normSupply(v){ return norm(v).replace(/\s/g,''); }
+function up(v){ return norm(v).toUpperCase(); }
+function safeNum(v){ const n=Number(v); return isFinite(n)?n:0; }
+function isDataSheet(name){ const u=name.toUpperCase().trim(); if(SKIP_SHEETS.has(u)) return false; return MONTHS_GR.some(m=>u.includes(m)) || /20[0-9]{2}/.test(u); }
+function rowRecency(r){
+  const monthRank = MONTH_ORDER[String(r.month||'').split(' ')[0].toUpperCase()] || 0;
+  const ts = parseGreekDateTime(r.date) || 0;
+  return monthRank * 1e13 + Math.floor(ts/1000);
+}
+function rebuildLumRows(){
+  if(S.dedupOn){
+    const map = new Map();
+    for(const r of S.allRows){
+      const cur = map.get(r.supply);
+      if(!cur || rowRecency(r) > rowRecency(cur)) map.set(r.supply, r);
+    }
+    S.lumRows = [...map.values()];
+    S.dupCount = S.allRows.length - S.lumRows.length;
+  } else {
+    S.lumRows = [...S.allRows];
+    S.dupCount = 0;
+  }
+  detectDuplicateGroups();
+}
+
+// Find supplies that appear >1 times for the SAME ΑΦΜ in S.allRows
+function detectDuplicateGroups(){
+  const bySup = new Map();
+  for(const r of S.allRows){
+    const k = r.supply;
+    if(!bySup.has(k)) bySup.set(k,[]);
+    bySup.get(k).push(r);
+  }
+  S.dupGroups = [];
+  const dupSupplies = new Set();
+  for(const [supply, rows] of bySup){
+    if(rows.length<2) continue;
+    // group only if same ΑΦΜ
+    const afm = up(rows[0].afm);
+    const sameClient = rows.every(r=>up(r.afm)===afm && afm);
+    if(!sameClient) continue;
+    // sort by date asc
+    const sorted = [...rows].sort((a,b)=>(parseGreekDateTime(a.date)||0)-(parseGreekDateTime(b.date)||0));
+    const firstTs = parseGreekDateTime(sorted[0].date)||0;
+    const lastTs  = parseGreekDateTime(sorted[sorted.length-1].date)||0;
+    const days = firstTs && lastTs ? Math.round((lastTs-firstTs)/86400000) : null;
+    S.dupGroups.push({supply, afm, name: sorted[0].name, count: rows.length, rows: sorted, firstTs, lastTs, days});
+    dupSupplies.add(supply);
+  }
+  // mark each row
+  for(const r of S.allRows) r.isDup = dupSupplies.has(r.supply);
+  for(const r of S.lumRows) r.isDup = dupSupplies.has(r.supply);
+}
+function findCol(headers,...terms){ for(let i=0;i<headers.length;i++){ const h=String(headers[i]??'').toLowerCase(); if(terms.some(t=>h.includes(t.toLowerCase()))) return i; } return -1; }
+function fmtDate(v){ if(!v) return '–'; if(v instanceof Date && !isNaN(v)) return v.toLocaleDateString('el-GR'); if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000)).toLocaleDateString('el-GR'); const d=new Date(v); if(!isNaN(d)) return d.toLocaleDateString('el-GR'); return String(v); }
+function dateKey(v){ if(!v) return 0; if(v instanceof Date && !isNaN(v)) return v.getTime(); if(typeof v==='number') return v; const d=new Date(v); return isNaN(d)?0:d.getTime(); }
+function readFile(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsArrayBuffer(f); }); }
+// Trim a sheet's !ref to the actual last data row (scans col A from the end)
+function trimSheet(ws, scanCols=[0,1,4]){
+  if(!ws['!ref']) return;
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  // Coarse: jump back in steps until we hit a non-empty row, then linear refine
+  const has = r=>{
+    for(const c of scanCols){
+      const a = XLSX.utils.encode_cell({r,c});
+      const cell = ws[a];
+      if(cell && cell.v!=null && cell.v!=='') return true;
+    }
+    return false;
+  };
+  let cursor = range.e.r;
+  const step = Math.max(64, Math.floor((range.e.r-range.s.r)/64));
+  while(cursor>=range.s.r && !has(cursor)) cursor -= step;
+  if(cursor<range.s.r) cursor = range.s.r;
+  // refine: walk forward from cursor while we see data, then trim trailing empties
+  let last = cursor;
+  for(let r=cursor; r<=Math.min(range.e.r,cursor+step+200); r++) if(has(r)) last = r;
+  range.e.r = last;
+  ws['!ref'] = XLSX.utils.encode_range(range);
+}
+async function nextFrame(){ return new Promise(r=>requestAnimationFrame(r)); }
+function parseGreekDateTime(v){
+  if(v==null||v==='') return 0;
+  if(v instanceof Date && !isNaN(v)) return v.getTime();
+  if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000)).getTime();
+  const s = String(v).trim();
+  // "5/1/2026, 11:24 π.μ." or "5/1/2026 11:24"
+  const m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(π\.μ\.|μ\.μ\.|am|pm)?)?/i);
+  if(m){
+    let [,d,mo,y,h,mi,se,ap] = m;
+    let hh = parseInt(h||'0'), mm = parseInt(mi||'0'), ss = parseInt(se||'0');
+    if(ap){ const pm = /μ\.μ\.|pm/i.test(ap); if(pm && hh<12) hh+=12; if(!pm && hh===12) hh=0; }
+    return new Date(parseInt(y),parseInt(mo)-1,parseInt(d),hh,mm,ss).getTime();
+  }
+  const d = new Date(s); return isNaN(d)?0:d.getTime();
+}
+function addLog(msg,cls=''){ const el=document.getElementById('log'); el.classList.add('on'); el.innerHTML+=`<span class="${cls}">${msg}</span><br>`; el.scrollTop=el.scrollHeight; }
+function clearLog(){ const el=document.getElementById('log'); el.innerHTML=''; el.classList.remove('on'); }
+function checkReady(){ document.getElementById('btnRun').disabled = !((S.allRows&&S.allRows.length>0)||(S.lumRows&&S.lumRows.length>0)); }
+
+const NOT_FOUND_TXT = 'Δεν βρέθηκε στο ρεπόρτ';
+function classifyStatus(s){
+  // normalise greek capital Μ (U+039C) to latin M, drop accents
+  let u = up(s).replace(/Μ/g,'M').normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if(!u) return 'unknown';
+  if(u.includes('ΔΕΝ ΒΡΕΘΗΚΕ') || u.includes('NOT FOUND')) return 'missing';
+  // ΑΚΥΡΩΜΕΝΗ — αποκλειστικά "Cancelled Indirect Sales" + ΑΚΥΡΩΘΗΚΕ
+  if(u.includes('CANCELLED INDIRECT SALES') || u.includes('ΑΚΥΡΩΘΗΚΕ') || u.includes('ΑΚΥΡΩΜΕΝ')) return 'cancelled';
+  // Closed (περιλαμβάνεται και το Duplicated)
+  if(u.includes('CLOSED') || u.includes('ΚΛΕΙΣΤ') || u.includes('ΚΑΤΑΧΩΡ') || u.includes('DUPLICAT')) return 'closed';
+  // οτιδήποτε άλλο (Cancelled FO, Missing docs, Αναμ. Απάντησης Πελάτη, ΕΚΚΡΕΜΟΤΗΤΑ, ΑΝΑΜΟΝΗ ΕΓΓΡΑΦΟΥ, open, T90, …) = εκκρεμότητα
+  return 'pending';
+}
+function statusBadgeClass(s){
+  switch(classifyStatus(s)){
+    case 'closed':    return 'bdg-green';
+    case 'cancelled': return 'bdg-red';
+    case 'pending':   return 'bdg-yellow';
+    case 'missing':   return 'bdg-orange';
+    default:          return 'bdg-grey';
+  }
+}
+
+// ── LOAD LUMINARITY ───────────────────────────────────────────────
+async function loadLum(inp){
+  const f = inp.files[0]; if(!f) return;
+  clearLog();
+  addLog(`⏳ Φόρτωση: ${f.name}…`);
+  try{
+    const t0 = performance.now();
+    const buf = await readFile(f);
+    const wb = XLSX.read(buf,{type:'array',cellDates:true,cellFormula:false,cellHTML:false,cellStyles:false,sheetStubs:false,bookVBA:false});
+    S.lumWB = wb;
+    // Trim each data sheet's !ref to actual last row before sheet_to_json
+    for(const sh of wb.SheetNames){
+      if(isDataSheet(sh)) trimSheet(wb.Sheets[sh],[0,1,4]);
+    }
+    await nextFrame();
+
+    // Build master mapping from ΛΙΣΤΕΣ
+    const masterByName = new Map();
+    const masterByCode = new Map();
+    const lists = wb.Sheets['ΛΙΣΤΕΣ'] || wb.Sheets['LISTS'];
+    if(lists){
+      const lr = XLSX.utils.sheet_to_json(lists,{header:1,defval:null});
+      for(let i=1;i<lr.length;i++){
+        const r = lr[i]||[];
+        const m = norm(r[5]); const dn = up(r[6]); const dc = up(r[7]);
+        if(m && dn) masterByName.set(dn,m);
+        if(m && dc) masterByCode.set(dc,m);
+      }
+      addLog(`<span class="ok">✓ ΛΙΣΤΕΣ — ${masterByName.size} dealer→master</span>`);
+    } else {
+      addLog(`<span class="warn">⚠ Δεν βρέθηκε φύλλο ΛΙΣΤΕΣ — Master θα παραμείνουν κενά</span>`);
+    }
+
+    S.allRows = [];
+    let sheetCnt=0;
+    for(const sh of wb.SheetNames){
+      if(!isDataSheet(sh)) continue;
+      const ws = wb.Sheets[sh];
+      const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      if(raw.length<2) continue;
+      const hdr = raw[0].map(h=>norm(h));
+      let cDate=findCol(hdr,'HM/MM','ΗΜΕΡΟΜ');           if(cDate<0)   cDate=0;
+      let cName=findCol(hdr,'ΟΝΟΜΑΤ','NAME');             if(cName<0)   cName=1;
+      let cAfm=findCol(hdr,'ΑΦΜ','AFM');                  if(cAfm<0)    cAfm=2;
+      let cType=findCol(hdr,'ΤΥΠΟΣ ΠΑΡΟΧ');               if(cType<0)   cType=3;
+      let cSup=findCol(hdr,'ΑΡ ΠΑΡΟΧ','ΑΡΙΘΜ ΠΑΡΟΧ');     if(cSup<0)    cSup=4;
+      let cDeal=findCol(hdr,'DEALER','ΣΥΝΕΡΓ');           if(cDeal<0)   cDeal=5;
+      let cApp=findCol(hdr,'ΤΥΠΟΣ ΑΙΤΗΣ');                if(cApp<0)    cApp=6;
+      let cSt=findCol(hdr,'STATUS');                      if(cSt<0)     cSt=7;
+      let cPr=findCol(hdr,'ΠΡΟΓΡΑΜ');                     if(cPr<0)     cPr=8;
+      let cGr=findCol(hdr,'ΓΡΑΜΜΟΓΡΑΦ');                  if(cGr<0)     cGr=13;
+      let cnt=0;
+      for(let i=1;i<raw.length;i++){
+        const r = raw[i]; if(!r) continue;
+        const sup = normSupply(r[cSup]); if(!sup) continue;
+        const dl = norm(r[cDeal]); if(!dl) continue;
+        const rt = up(r[cType]);
+        const type = rt.includes('ΑΕΡΙΟ') ? 'ΑΕΡΙΟ' : (rt.includes('ΡΕΥΜΑ')||rt.includes('REUMA')) ? 'ΡΕΥΜΑ' : (rt||'–');
+        const gramm = String(r[cGr]||'');
+        const grParts = gramm.split('|').map(s=>s.trim());
+        const dCode = grParts.length>=7 ? up(grParts[6]) : '';
+        const master = masterByName.get(up(dl)) || masterByCode.get(dCode) || '';
+        const status = norm(r[cSt]);
+        S.allRows.push({
+          date: r[cDate], name: norm(r[cName]), afm: norm(r[cAfm]),
+          type, supply: sup, dealer: dl, master,
+          appType: norm(r[cApp]), status, originalStatus: status,
+          program: norm(r[cPr]), month: sh, gramm, dCode,
+          updated:false, reason:''
+        });
+        cnt++;
+      }
+      sheetCnt++;
+      addLog(`<span class="ok">✓ ${sh}</span> — ${cnt} εγγρ.`);
+    }
+    rebuildLumRows();
+    const dupMsg = S.dupCount>0 ? ` · αφαιρέθηκαν ${S.dupCount} διπλές` : '';
+    const dt = ((performance.now()-t0)/1000).toFixed(1);
+    addLog(`<strong>LUMINARITY: ${S.allRows.length} εγγραφές από ${sheetCnt} φύλλα → ${S.lumRows.length} μοναδικές παροχές${dupMsg} (${dt}s)</strong>`);
+    document.getElementById('tagLum').innerHTML = `<div class="file-tag">${f.name}<span class="badge">${S.lumRows.length} μον. παρ.</span></div>`;
+  } catch(e){ addLog('✖ '+e.message,'err'); }
+  checkReady();
+}
+
+// ── LOAD DAILY REPORT ─────────────────────────────────────────────
+async function loadDaily(inp){
+  const f = inp.files[0]; if(!f) return;
+  addLog(`⏳ Φόρτωση Daily Report: ${f.name}…`);
+  try{
+    const t0 = performance.now();
+    const buf = await readFile(f);
+    const wb = XLSX.read(buf,{type:'array',cellDates:false,cellFormula:false,cellHTML:false,cellStyles:false,sheetStubs:false,bookVBA:false});
+    for(const sh of wb.SheetNames) trimSheet(wb.Sheets[sh],[0,1,2]);
+    S.dailyMap = new Map();
+    S.dailySource = f.name;
+    let total = 0;
+
+    for(const sh of wb.SheetNames){
+      const ws = wb.Sheets[sh];
+      const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      if(raw.length<2) continue;
+      const hdr = raw[0].map(h=>norm(h));
+      // Strict matching per user request: only ΡΕΥΜΑ + ΦΑ supply columns, only FINAL STATUS
+      const cTicket = findCol(hdr,'ticket');
+      const cReuma  = findCol(hdr,'ρευμα αριθμ','ρεύμα αριθμ','reuma','electricity supply');
+      const cFa     = findCol(hdr,'φα ηκασπ','φα αριθμ','gas supply','ηκασπ');
+      const cFinal  = findCol(hdr,'final status');
+      const cReason = findCol(hdr,'reason','σχόλι','σχολι');
+      // Date Created — column B / index 1 in this report; allow header fallback
+      let cDate = findCol(hdr,'date created','ημερομηνια','ημ/νια');
+      if(cDate<0) cDate = 1;
+      let cnt=0;
+      for(let i=1;i<raw.length;i++){
+        const r = raw[i]; if(!r) continue;
+        const supplies = [];
+        if(cReuma>=0) supplies.push(normSupply(r[cReuma]));
+        if(cFa>=0)    supplies.push(normSupply(r[cFa]));
+        const newStatus = norm(cFinal>=0 ? r[cFinal] : '');
+        if(!newStatus) continue;
+        const reason = norm(cReason>=0 ? r[cReason] : '');
+        const ticket = norm(cTicket>=0 ? r[cTicket] : '');
+        const ts = parseGreekDateTime(r[cDate]);
+        for(const sup of supplies){
+          if(!sup || sup.length<4) continue;
+          // Keep the entry with the most recent Date Created
+          const existing = S.dailyMap.get(sup);
+          if(existing && existing.ts >= ts) continue;
+          S.dailyMap.set(sup,{newStatus, reason, ticket, sheet:sh, ts});
+          cnt++;
+        }
+      }
+      addLog(`<span class="ok">✓ ${sh}</span> — ${cnt} mappings`);
+      total += cnt;
+    }
+    const dt = ((performance.now()-t0)/1000).toFixed(1);
+    addLog(`<strong>Daily Report: ${S.dailyMap.size} μοναδικές παροχές (${dt}s)</strong>`);
+    document.getElementById('tagDaily').innerHTML = `<div class="file-tag">${f.name}<span class="badge">${S.dailyMap.size} παροχές</span></div>`;
+  } catch(e){ addLog('✖ '+e.message,'err'); }
+  checkReady();
+}
+
+// ── LOAD EXTRA SUPPLY LIST ────────────────────────────────────────
+async function loadExtra(inp){
+  const f = inp.files[0]; if(!f) return;
+  addLog(`⏳ Φόρτωση Extra λίστας: ${f.name}…`);
+  try{
+    const buf = await readFile(f);
+    const wb = XLSX.read(buf,{type:'array',cellDates:false,cellFormula:false,cellStyles:false,cellHTML:false,sheetStubs:false,bookVBA:false});
+    // Trim & take first sheet (usually that's where the supplies are)
+    const sh = wb.SheetNames[0];
+    trimSheet(wb.Sheets[sh],[0,1,2,3,4]);
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,defval:null,blankrows:false});
+    if(raw.length<1){ addLog('✖ Κενό αρχείο','err'); return; }
+    S.extraWB = wb; S.extraSheet = sh; S.extraFileName = f.name;
+    S.extraHeaders = (raw[0]||[]).map(h=>norm(h));
+    S.extraRows = raw.slice(1);
+
+    // Auto-detect supply column
+    let col = -1;
+    for(let i=0;i<S.extraHeaders.length;i++){
+      const h = up(S.extraHeaders[i]);
+      if(h.includes('ΑΡ ΠΑΡΟΧ')||h.includes('ΑΡΙΘΜ ΠΑΡΟΧ')||h.includes('ΠΑΡΟΧΗ')||h.includes('SUPPLY')||h.includes('ΗΚΑΣΠ')){
+        col = i; break;
+      }
+    }
+    // If headerless or not found, scan first row for numeric content (long supply numbers)
+    if(col<0 && S.extraRows.length>0){
+      const firstRow = S.extraRows[0];
+      for(let i=0;i<firstRow.length;i++){
+        const v = normSupply(firstRow[i]);
+        if(/^\d{6,}$/.test(v)){ col = i; break; }
+      }
+    }
+    const sel = document.getElementById('extraColSel');
+    sel.innerHTML = '<option value="">— επιλέξτε —</option>' +
+      S.extraHeaders.map((h,i)=>`<option value="${i}"${i===col?' selected':''}>${escapeHtml(h||'(στήλη '+(i+1)+')')}</option>`).join('');
+    if(col>=0){
+      S.extraColIdx = col;
+      document.getElementById('extraColPicker').style.display = 'none';
+      addLog(`<span class="ok">✓ Extra: ${S.extraRows.length} γραμμές · στήλη παροχής: "${S.extraHeaders[col]||'col '+(col+1)}"</span>`);
+    } else {
+      document.getElementById('extraColPicker').style.display = 'block';
+      addLog(`<span class="warn">⚠ Δεν εντοπίστηκε στήλη παροχής — επίλεξε χειροκίνητα</span>`);
+    }
+    document.getElementById('tagExtra').innerHTML = `<div class="file-tag">${f.name}<span class="badge">${S.extraRows.length} γραμμές</span></div>`;
+    document.getElementById('btnExtraExport').style.display = (S.extraColIdx>=0)?'block':'none';
+  } catch(e){ addLog('✖ '+e.message,'err'); }
+}
+function onExtraColPick(){
+  const v = document.getElementById('extraColSel').value;
+  S.extraColIdx = v===''?-1:parseInt(v);
+  document.getElementById('btnExtraExport').style.display = (S.extraColIdx>=0)?'block':'none';
+  if(S.extraColIdx>=0) addLog(`<span class="ok">✓ Στήλη παροχής: "${S.extraHeaders[S.extraColIdx]||'col '+(S.extraColIdx+1)}"</span>`);
+}
+
+function exportExtraEnriched(){
+  if(!S.extraWB || S.extraColIdx<0){ alert('Φόρτωσε πρώτα Extra αρχείο και επίλεξε στήλη παροχής.'); return; }
+  if(S.dailyMap.size===0){ alert('Φόρτωσε πρώτα το Daily Report για να αντλήσω statuses.'); return; }
+
+  // Build new rows: original + 4 extra columns
+  const newHeaders = [...S.extraHeaders, 'STATUS (Daily Report)','REASON','ΕΝΗΜΕΡΩΘΗΚΕ','ΗΜ. ΕΛΕΓΧΟΥ'];
+  const today = new Date();
+  let matched=0, notFound=0;
+  const enriched = [newHeaders];
+  for(const r of S.extraRows){
+    if(!r) continue;
+    const sup = normSupply(r[S.extraColIdx]);
+    let st='', reason='', upd='';
+    if(sup && sup.length>=4){
+      const hit = S.dailyMap.get(sup);
+      if(hit){
+        st = hit.newStatus;
+        reason = hit.reason||'';
+        upd = 'ΝΑΙ';
+        matched++;
+      } else {
+        st = NOT_FOUND_TXT;
+        upd = 'ΟΧΙ';
+        notFound++;
+      }
+    }
+    const out = new Array(S.extraHeaders.length);
+    for(let i=0;i<S.extraHeaders.length;i++) out[i] = r[i]==null?'':r[i];
+    out.push(st, reason, upd, today);
+    enriched.push(out);
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(enriched);
+  // column widths
+  ws['!cols'] = newHeaders.map(h=>{
+    if(/REASON/i.test(h)) return {wch:48};
+    if(/STATUS|ΕΝΗΜΕΡΩΘΗΚΕ|ΗΜ\./i.test(h)) return {wch:22};
+    return {wch:Math.max(String(h||'').length+2, 14)};
+  });
+  XLSX.utils.book_append_sheet(wb, ws, safeSheetName(S.extraSheet||'Παροχές'));
+
+  const baseName = (S.extraFileName||'extra').replace(/\.(xlsx|xls|csv)$/i,'');
+  XLSX.writeFile(wb, `${baseName}_ΕΝΗΜΕΡΩΜΕΝΟ_${todayStr()}.xlsx`);
+  addLog(`<span class="ok">✓ Extra αρχείο: ${matched} ταυτοποιήθηκαν, ${notFound} δεν βρέθηκαν στο Daily Report</span>`);
+}
+
+// ── ANALYZE ───────────────────────────────────────────────────────
+function analyze(){
+  if((S.allRows||[]).length===0){ addLog('✖ Φόρτωσε πρώτα το αρχείο LUMINARITY','err'); return; }
+
+  let updated=0, notFound=0;
+  const dailyLoaded = S.dailyMap.size>0;
+  // Apply update on raw allRows so duplicate-tab rows also get the new status
+  for(const r of S.allRows){
+    r.updated=false; r.reason='';
+    r.status = r.originalStatus;
+    if(!dailyLoaded) continue;
+    const hit = S.dailyMap.get(r.supply);
+    if(hit){
+      r.status = hit.newStatus;
+      r.reason = hit.reason || '';
+      if(up(hit.newStatus)!==up(r.originalStatus)){ r.updated = true; }
+    } else {
+      r.status = NOT_FOUND_TXT;
+      if(up(r.status)!==up(r.originalStatus)){ r.updated = true; }
+    }
+  }
+  // Recompute lumRows after status updates (so dedup picks the right "latest")
+  rebuildLumRows();
+  for(const r of S.lumRows){ if(r.updated) updated++; }
+  for(const r of S.lumRows){ if(classifyStatus(r.status)==='missing') notFound++; }
+  addLog(`<span class="ok">✓ Ενημερώθηκαν ${updated} εγγραφές από Daily Report</span>`);
+  if(dailyLoaded && notFound>0) addLog(`<span class="warn">⚠ ${notFound} παροχές δεν βρέθηκαν στο Daily Report</span>`);
+
+  buildFilters();
+  applyFilters();
+  showUI();
+}
+
+// ── UI ────────────────────────────────────────────────────────────
+function showUI(){
+  document.getElementById('kpiGrid').style.display='grid';
+  document.getElementById('masterCards').style.display='grid';
+  document.getElementById('toolbar').style.display='flex';
+  document.getElementById('exportBar').style.display='flex';
+  document.getElementById('tabs').style.display='flex';
+}
+
+// ── MULTI-SELECT ──────────────────────────────────────────────────
+function buildMS(id, label, options){
+  const root = document.getElementById(id);
+  if(!root) return;
+  const prevSelected = new Set(root._getSelected ? root._getSelected() : []);
+  root.innerHTML = `
+    <button class="ms-btn" type="button"><span class="ms-label">${label} (όλοι)</span></button>
+    <div class="ms-panel">
+      <input type="text" class="ms-search" placeholder="Αναζήτηση…">
+      <div class="ms-list">${options.map(o=>`<label class="ms-item"><input type="checkbox" value="${escapeAttr(o)}"${prevSelected.has(o)?' checked':''}>${escapeHtml(o)}</label>`).join('')}</div>
+      <div class="ms-actions"><a data-act="all">Όλα</a><a data-act="none">Καθαρισμός</a></div>
+    </div>`;
+  const btn = root.querySelector('.ms-btn');
+  const panel = root.querySelector('.ms-panel');
+  const lbl = root.querySelector('.ms-label');
+  const search = root.querySelector('.ms-search');
+  const list = root.querySelector('.ms-list');
+  function items(){ return [...list.querySelectorAll('.ms-item')]; }
+  function checks(){ return [...list.querySelectorAll('input[type=checkbox]')]; }
+  function visibleChecks(){ return items().filter(it=>it.style.display!=='none').map(it=>it.querySelector('input')); }
+  function updateLabel(){
+    const sel = checks().filter(c=>c.checked).map(c=>c.value);
+    if(sel.length===0) lbl.textContent = `${label} (όλοι)`;
+    else if(sel.length===1) lbl.innerHTML = `${escapeHtml(sel[0]).slice(0,22)}<span class="ms-count">1</span>`;
+    else lbl.innerHTML = `${label} <span class="ms-count">${sel.length}</span>`;
+    root.classList.toggle('active', sel.length>0);
+  }
+  btn.onclick = e=>{
+    e.stopPropagation();
+    document.querySelectorAll('.ms.open').forEach(x=>x!==root&&x.classList.remove('open'));
+    root.classList.toggle('open');
+    if(root.classList.contains('open')) setTimeout(()=>search.focus(),0);
+  };
+  panel.onclick = e=>e.stopPropagation();
+  search.oninput = ()=>{
+    const q = search.value.toLowerCase();
+    items().forEach(it=>{ it.style.display = it.textContent.toLowerCase().includes(q)?'flex':'none'; });
+  };
+  checks().forEach(cb=>cb.onchange = ()=>{ updateLabel(); applyFilters(); });
+  root.querySelector('[data-act="all"]').onclick = ()=>{ visibleChecks().forEach(cb=>cb.checked=true); updateLabel(); applyFilters(); };
+  root.querySelector('[data-act="none"]').onclick = ()=>{ checks().forEach(cb=>cb.checked=false); updateLabel(); applyFilters(); };
+  root._getSelected = ()=> checks().filter(c=>c.checked).map(c=>c.value);
+  root._reset = ()=>{ checks().forEach(c=>c.checked=false); search.value=''; items().forEach(it=>it.style.display='flex'); updateLabel(); };
+  updateLabel();
+}
+// Click outside closes panels
+document.addEventListener('click', ()=>document.querySelectorAll('.ms.open').forEach(x=>x.classList.remove('open')));
+
+function buildFilters(){
+  const masters = [...new Set(S.lumRows.map(r=>r.master).filter(Boolean))].sort();
+  const dealers = [...new Set(S.lumRows.map(r=>r.dealer).filter(Boolean))].sort();
+  const months  = [...new Set(S.lumRows.map(r=>r.month).filter(Boolean))]
+                  .sort((a,b)=>(MONTH_ORDER[a.split(' ')[0]]||0) - (MONTH_ORDER[b.split(' ')[0]]||0));
+  const types   = [...new Set(S.lumRows.map(r=>r.type).filter(Boolean))].sort();
+  const statuses= [...new Set(S.lumRows.map(r=>r.status).filter(Boolean))].sort();
+  buildMS('msMaster','Master',masters);
+  buildMS('msDealer','Dealer',dealers);
+  buildMS('msMonth','Μήνας',months);
+  buildMS('msType','Τύπος',types);
+  buildMS('msStatus','Status',statuses);
+}
+
+function getMS(id){ const el = document.getElementById(id); return el && el._getSelected ? el._getSelected() : []; }
+
+function applyFilters(){
+  const fM = getMS('msMaster');
+  const fD = getMS('msDealer');
+  const fMo= getMS('msMonth');
+  const fT = getMS('msType');
+  const fSt= getMS('msStatus');
+  const q  = up(document.getElementById('fSearch').value);
+
+  S.filtered = S.lumRows.filter(r=>{
+    if(fM.length && !fM.includes(r.master)) return false;
+    if(fD.length && !fD.includes(r.dealer)) return false;
+    if(fMo.length && !fMo.includes(r.month)) return false;
+    if(fT.length && !fT.includes(r.type)) return false;
+    if(fSt.length && !fSt.includes(r.status)) return false;
+    if(q && !(up(r.name).includes(q)||up(r.afm).includes(q)||up(r.supply).includes(q))) return false;
+    return true;
+  });
+  const parts = [];
+  if(fM.length) parts.push(`${fM.length} master`);
+  if(fD.length) parts.push(`${fD.length} dealer`);
+  if(fMo.length) parts.push(`${fMo.length} μήνες`);
+  if(fT.length) parts.push(`${fT.length} τύπο${fT.length>1?'υς':''}`);
+  if(fSt.length) parts.push(`${fSt.length} status`);
+  document.getElementById('filterInfo').textContent = `${S.filtered.length} / ${S.lumRows.length} εγγρ.${parts.length?' · '+parts.join(' · '):''}`;
+
+  S.page.detail = 0;
+  computeKPIs();
+  computeMasterAgg();
+  computeDealerAgg();
+  renderMasterCards();
+  renderMasters();
+  renderDealers();
+  renderDetail();
+  renderUpdates();
+  renderDuplicates();
+  renderCharts();
+}
+function resetFilters(){
+  ['msMaster','msDealer','msMonth','msType','msStatus'].forEach(id=>{ const el=document.getElementById(id); if(el && el._reset) el._reset(); });
+  document.getElementById('fSearch').value='';
+  S.selectedMaster='';
+  applyFilters();
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────
+function computeKPIs(){
+  const rs = S.filtered;
+  const tot = rs.length;
+  let cl=0,pe=0,ca=0,mi=0,up_=0;
+  const masters = new Set(), dealers = new Set();
+  for(const r of rs){
+    const c = classifyStatus(r.status);
+    if(c==='closed') cl++;
+    else if(c==='pending') pe++;
+    else if(c==='cancelled') ca++;
+    else if(c==='missing') mi++;
+    if(r.updated) up_++;
+    if(r.master) masters.add(r.master);
+    if(r.dealer) dealers.add(r.dealer);
+  }
+  const pct = v=> tot? (v/tot*100).toFixed(1)+'%':'–';
+  $('kTotal').textContent = tot.toLocaleString('el-GR');
+  $('kTotalSub').textContent = `${dealers.size} dealers`;
+  $('kClosed').textContent = cl.toLocaleString('el-GR');
+  $('kClosedSub').textContent = pct(cl);
+  $('kPending').textContent = pe.toLocaleString('el-GR');
+  $('kPendingSub').textContent = pct(pe);
+  $('kCancel').textContent = ca.toLocaleString('el-GR');
+  $('kCancelSub').textContent = pct(ca);
+  $('kMissing').textContent = mi.toLocaleString('el-GR');
+  $('kMissingSub').textContent = pct(mi);
+  $('kUpd').textContent = up_.toLocaleString('el-GR');
+  $('kUpdSub').textContent = S.dailyMap.size? `από ${S.dailyMap.size} του Daily Report` : 'χωρίς Daily Report';
+  $('kMast').textContent = masters.size;
+  $('kMastSub').textContent = '';
+  document.getElementById('updBadge').textContent = up_;
+  document.getElementById('updBadge').style.display = up_? 'inline-block':'none';
+}
+function $(id){ return document.getElementById(id); }
+
+// ── AGGREGATES ────────────────────────────────────────────────────
+function computeMasterAgg(){
+  const m = new Map();
+  for(const r of S.filtered){
+    const key = r.master || '(χωρίς master)';
+    if(!m.has(key)) m.set(key,{master:key,total:0,closed:0,pending:0,cancelled:0,missing:0,other:0,reuma:0,aerio:0,dealers:new Set(),updated:0});
+    const o = m.get(key);
+    o.total++;
+    const c = classifyStatus(r.status);
+    if(c==='closed') o.closed++;
+    else if(c==='pending') o.pending++;
+    else if(c==='cancelled') o.cancelled++;
+    else if(c==='missing') o.missing++;
+    else o.other++;
+    if(r.type==='ΡΕΥΜΑ') o.reuma++; else if(r.type==='ΑΕΡΙΟ') o.aerio++;
+    if(r.dealer) o.dealers.add(r.dealer);
+    if(r.updated) o.updated++;
+  }
+  S.masterAgg = [...m.values()].map(o=>({...o,dealers:o.dealers.size,updPct: o.total? o.closed/o.total : 0}));
+}
+function computeDealerAgg(){
+  const m = new Map();
+  for(const r of S.filtered){
+    const key = (r.master||'–') + '||' + (r.dealer||'(άγνωστος)');
+    if(!m.has(key)) m.set(key,{master:r.master||'–',dealer:r.dealer||'(άγνωστος)',total:0,closed:0,pending:0,cancelled:0,missing:0,reuma:0,aerio:0});
+    const o = m.get(key);
+    o.total++;
+    const c = classifyStatus(r.status);
+    if(c==='closed') o.closed++;
+    else if(c==='pending') o.pending++;
+    else if(c==='cancelled') o.cancelled++;
+    else if(c==='missing') o.missing++;
+    if(r.type==='ΡΕΥΜΑ') o.reuma++; else if(r.type==='ΑΕΡΙΟ') o.aerio++;
+  }
+  S.dealerAgg = [...m.values()].map(o=>({...o,updPct: o.total? o.closed/o.total : 0}));
+}
+
+// ── RENDER MASTER CARDS ───────────────────────────────────────────
+function renderMasterCards(){
+  const wrap = document.getElementById('masterCards');
+  if(S.masterAgg.length===0){ wrap.style.display='none'; return; }
+  wrap.style.display='grid';
+  const sorted = [...S.masterAgg].sort((a,b)=>b.total-a.total);
+  wrap.innerHTML = sorted.map(o=>{
+    const sel = (S.selectedMaster===o.master)?'sel':'';
+    const cl = o.total? Math.round(o.closed/o.total*100):0;
+    const pe = o.total? Math.round(o.pending/o.total*100):0;
+    const ca = o.total? Math.round(o.cancelled/o.total*100):0;
+    return `<div class="mc ${sel}" onclick="selectMaster('${escapeAttr(o.master)}')">
+      <div class="mc-name"><span>${o.master}</span><span class="bdg bdg-purple">${o.dealers} dealers</span></div>
+      <div class="mc-stats">
+        <div class="mc-stat b"><div class="sv">${o.total}</div><div class="sl">Σύνολο</div></div>
+        <div class="mc-stat g"><div class="sv">${o.closed}</div><div class="sl">Closed</div></div>
+        <div class="mc-stat y"><div class="sv">${o.pending}</div><div class="sl">Εκκρ.</div></div>
+        <div class="mc-stat r"><div class="sv">${o.cancelled}</div><div class="sl">Ακυρ.</div></div>
+      </div>
+      <div class="mc-bar"><div class="b-g" style="width:${cl}%"></div><div class="b-y" style="width:${pe}%"></div><div class="b-r" style="width:${ca}%"></div></div>
+    </div>`;
+  }).join('');
+}
+function selectMaster(m){
+  const root = document.getElementById('msMaster');
+  const checks = [...root.querySelectorAll('input[type=checkbox]')];
+  const target = checks.find(c=>c.value===m);
+  if(!target) return;
+  const currentlySelected = checks.filter(c=>c.checked).map(c=>c.value);
+  const onlyThis = currentlySelected.length===1 && currentlySelected[0]===m;
+  checks.forEach(c=>c.checked=false);
+  if(!onlyThis) target.checked = true;
+  S.selectedMaster = onlyThis ? '' : m;
+  // Force label refresh + applyFilters (no change event will fire if we only unchecked)
+  const lbl = root.querySelector('.ms-label');
+  const sel = checks.filter(c=>c.checked).map(c=>c.value);
+  if(sel.length===0) lbl.textContent = 'Master (όλοι)';
+  else if(sel.length===1) lbl.innerHTML = `${escapeHtml(sel[0]).slice(0,22)}<span class="ms-count">1</span>`;
+  else lbl.innerHTML = `Master <span class="ms-count">${sel.length}</span>`;
+  root.classList.toggle('active', sel.length>0);
+  applyFilters();
+}
+function escapeAttr(s){ return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;'); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+// ── RENDER MASTERS / DEALERS TABLES ───────────────────────────────
+function renderMasters(){
+  const sort = S.sort.masters;
+  const arr = [...S.masterAgg].sort((a,b)=>{
+    const av=a[sort.col], bv=b[sort.col];
+    if(typeof av==='number') return (av-bv)*sort.dir;
+    return String(av).localeCompare(String(bv),'el')*sort.dir;
+  });
+  const tb = document.getElementById('masterBody');
+  tb.innerHTML = arr.map(o=>{
+    const pct = o.total? Math.round(o.closed/o.total*100):0;
+    return `<tr>
+      <td><strong>${escapeHtml(o.master)}</strong></td>
+      <td>${o.total}</td>
+      <td><span class="bdg bdg-green">${o.closed}</span></td>
+      <td><span class="bdg bdg-yellow">${o.pending}</span></td>
+      <td><span class="bdg bdg-red">${o.cancelled}</span></td>
+      <td><span class="bdg bdg-orange">${o.missing||0}</span></td>
+      <td>${o.reuma}</td>
+      <td>${o.aerio}</td>
+      <td>${o.dealers}</td>
+      <td>${pct}%</td>
+    </tr>`;
+  }).join('');
+  markSortedHeader('masterBody', sort.col, sort.dir);
+}
+function renderDealers(){
+  const sort = S.sort.dealers;
+  const arr = [...S.dealerAgg].sort((a,b)=>{
+    const av=a[sort.col], bv=b[sort.col];
+    if(typeof av==='number') return (av-bv)*sort.dir;
+    return String(av).localeCompare(String(bv),'el')*sort.dir;
+  });
+  const tb = document.getElementById('dealerBody');
+  tb.innerHTML = arr.map(o=>{
+    const pct = o.total? Math.round(o.closed/o.total*100):0;
+    return `<tr>
+      <td>${escapeHtml(o.master)}</td>
+      <td><strong>${escapeHtml(o.dealer)}</strong></td>
+      <td>${o.total}</td>
+      <td><span class="bdg bdg-green">${o.closed}</span></td>
+      <td><span class="bdg bdg-yellow">${o.pending}</span></td>
+      <td><span class="bdg bdg-red">${o.cancelled}</span></td>
+      <td><span class="bdg bdg-orange">${o.missing||0}</span></td>
+      <td>${o.reuma}</td>
+      <td>${o.aerio}</td>
+      <td>${pct}%</td>
+    </tr>`;
+  }).join('');
+  markSortedHeader('dealerBody', sort.col, sort.dir);
+}
+function markSortedHeader(tbodyId, col, dir){
+  const ths = document.querySelector('#'+tbodyId).previousElementSibling.querySelectorAll('th');
+  ths.forEach(th=>th.classList.remove('sa','sd'));
+  // we don't bind a marker to col->th here (would need maps); skip indicator alignment
+}
+function sortMasters(col){
+  if(S.sort.masters.col===col) S.sort.masters.dir*=-1;
+  else { S.sort.masters.col=col; S.sort.masters.dir = (col==='master')?1:-1; }
+  renderMasters();
+}
+function sortDealers(col){
+  if(S.sort.dealers.col===col) S.sort.dealers.dir*=-1;
+  else { S.sort.dealers.col=col; S.sort.dealers.dir = (col==='dealer'||col==='master')?1:-1; }
+  renderDealers();
+}
+
+// ── RENDER DETAIL ─────────────────────────────────────────────────
+function sortDetail(col){
+  if(S.sort.detail.col===col) S.sort.detail.dir*=-1;
+  else { S.sort.detail.col=col; S.sort.detail.dir = (col==='date')?-1:1; }
+  renderDetail();
+}
+function renderDetail(){
+  const sort = S.sort.detail;
+  const arr = [...S.filtered].sort((a,b)=>{
+    let av=a[sort.col], bv=b[sort.col];
+    if(sort.col==='date'){ av=dateKey(a.date); bv=dateKey(b.date); }
+    if(typeof av==='number'&&typeof bv==='number') return (av-bv)*sort.dir;
+    return String(av||'').localeCompare(String(bv||''),'el')*sort.dir;
+  });
+  const total = arr.length;
+  const start = S.page.detail*PAGE_SIZE;
+  const end = Math.min(start+PAGE_SIZE,total);
+  const slice = arr.slice(start,end);
+  document.getElementById('detailBody').innerHTML = slice.map(r=>{
+    const cls = statusBadgeClass(r.status);
+    const updTag = r.updated? '<span class="upd-tag">↻ DAILY</span>' : '';
+    const wasLine = (r.updated && r.originalStatus && r.originalStatus!==r.status) ? `<span class="was">ήταν: ${escapeHtml(r.originalStatus)}</span>` : '';
+    return `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td><span class="bdg bdg-purple">${escapeHtml(r.master||'–')}</span></td>
+      <td>${escapeHtml(r.dealer)}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.afm)}</td>
+      <td>${escapeHtml(r.supply)}</td>
+      <td>${escapeHtml(r.type)}</td>
+      <td>${escapeHtml(r.appType)}</td>
+      <td>${escapeHtml(r.program)}</td>
+      <td><span class="bdg ${cls}">${escapeHtml(r.status||'–')}</span>${updTag}${wasLine}</td>
+      <td>${escapeHtml(r.month)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('detailInfo').textContent = total? `${start+1}–${end} από ${total}` : '0 εγγραφές';
+  document.getElementById('detPrev').disabled = S.page.detail===0;
+  document.getElementById('detNext').disabled = end>=total;
+}
+function changePage(panel,dir){ S.page[panel] = Math.max(0,S.page[panel]+dir); renderDetail(); }
+
+// ── RENDER DUPLICATES ─────────────────────────────────────────────
+function renderDuplicates(){
+  const groups = (S.dupGroups||[]).slice().sort((a,b)=>b.count-a.count);
+  document.getElementById('dupBadge').textContent = groups.length;
+  document.getElementById('dupBadge').style.display = groups.length? 'inline-block':'none';
+  const body = document.getElementById('dupBody');
+  if(!body) return;
+  if(groups.length===0){
+    body.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">Δεν εντοπίστηκαν διπλές παροχές για ίδιο πελάτη.</td></tr>`;
+    return;
+  }
+  // For each row of each group, also resolve the latest (deduped) status from S.lumRows
+  const latestBySupply = new Map();
+  for(const r of S.lumRows) latestBySupply.set(r.supply, r);
+  let html = '';
+  groups.forEach((g, gi)=>{
+    const cls = 'dup-grp-' + ((gi%5)+1);
+    g.rows.forEach((r, ri)=>{
+      const latest = latestBySupply.get(r.supply);
+      const newStatus = latest? latest.status : r.status;
+      const newCls = statusBadgeClass(newStatus);
+      const oldCls = statusBadgeClass(r.originalStatus);
+      const interval = ri>0 ? `${Math.round(((parseGreekDateTime(r.date)||0) - (parseGreekDateTime(g.rows[ri-1].date)||0))/86400000)} ημ.` : '–';
+      const supplyCell = ri===0
+        ? `<strong>${escapeHtml(r.supply)}</strong><br><span style="font-size:10px;color:var(--muted)">${g.count} καταχωρήσεις</span>`
+        : `<span style="color:var(--muted)">↳ ${escapeHtml(r.supply)}</span>`;
+      html += `<tr class="${cls}">
+        <td>${supplyCell}</td>
+        <td>${ri===0?escapeHtml(r.name):''}</td>
+        <td>${ri===0?escapeHtml(r.afm):''}</td>
+        <td>${fmtDate(r.date)}</td>
+        <td>${escapeHtml(r.month)}</td>
+        <td>${escapeHtml(r.master||'–')}</td>
+        <td>${escapeHtml(r.dealer)}</td>
+        <td><span class="bdg ${newCls}">${escapeHtml(newStatus||'–')}</span></td>
+        <td><span class="bdg ${oldCls}" style="font-size:10px;">${escapeHtml(r.originalStatus||'–')}</span></td>
+        <td>${interval}</td>
+      </tr>`;
+    });
+  });
+  body.innerHTML = html;
+}
+
+// ── RENDER UPDATES ────────────────────────────────────────────────
+function renderUpdates(){
+  const arr = S.filtered.filter(r=>r.updated);
+  document.getElementById('updBody').innerHTML = arr.map(r=>{
+    const oldCls = statusBadgeClass(r.originalStatus);
+    const newCls = statusBadgeClass(r.status);
+    return `<tr>
+      <td><span class="bdg bdg-purple">${escapeHtml(r.master||'–')}</span></td>
+      <td>${escapeHtml(r.dealer)}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${escapeHtml(r.supply)}</td>
+      <td>${escapeHtml(r.type)}</td>
+      <td><span class="bdg ${oldCls}">${escapeHtml(r.originalStatus||'–')}</span></td>
+      <td><span class="bdg ${newCls}">${escapeHtml(r.status||'–')}</span></td>
+      <td style="font-size:11px;color:var(--muted);max-width:280px;">${escapeHtml(r.reason||'–')}</td>
+      <td>${escapeHtml(r.month)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">Καμία ενημέρωση από Daily Report.</td></tr>`;
+}
+
+// ── TABS ──────────────────────────────────────────────────────────
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active',el.dataset.tab===t));
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.toggle('active',el.id==='tab-'+t));
+  if(t==='charts') renderCharts();
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────
+function makeChart(id,type,data,opts={}){
+  const ctx = document.getElementById(id).getContext('2d');
+  if(S.charts[id]) S.charts[id].destroy();
+  const baseOpts = {
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#cbd5e1',font:{size:11}}}},
+    scales:type==='doughnut'?undefined:{
+      x:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#334155'}},
+      y:{ticks:{color:'#94a3b8',font:{size:10}},grid:{color:'#334155'}}
+    }
+  };
+  S.charts[id] = new Chart(ctx,{type,data,options:{...baseOpts,...opts}});
+}
+function renderCharts(){
+  if(S.filtered.length===0) return;
+
+  // 1. Per master
+  const mAgg = [...S.masterAgg].sort((a,b)=>b.total-a.total);
+  makeChart('chMaster','bar',{
+    labels: mAgg.map(o=>o.master),
+    datasets:[{label:'Αιτήσεις',data:mAgg.map(o=>o.total),backgroundColor:'#a78bfa'}]
+  });
+
+  // 2. Status doughnut
+  let cl=0,pe=0,ca=0,ot=0;
+  for(const r of S.filtered){const c=classifyStatus(r.status); if(c==='closed')cl++; else if(c==='pending')pe++; else if(c==='cancelled')ca++; else ot++;}
+  makeChart('chStatus','doughnut',{
+    labels:['Closed','Εκκρ.','Ακυρ.','Άλλα'],
+    datasets:[{data:[cl,pe,ca,ot],backgroundColor:['#22c55e','#f59e0b','#ef4444','#64748b']}]
+  });
+
+  // 3. Per month
+  const mm = new Map();
+  for(const r of S.filtered){ mm.set(r.month,(mm.get(r.month)||0)+1); }
+  const monthLabels = [...mm.keys()].sort((a,b)=>(MONTH_ORDER[a.split(' ')[0]]||0)-(MONTH_ORDER[b.split(' ')[0]]||0));
+  makeChart('chMonth','bar',{
+    labels: monthLabels,
+    datasets:[{label:'Αιτήσεις',data:monthLabels.map(m=>mm.get(m)),backgroundColor:'#38bdf8'}]
+  });
+
+  // 4. Top dealers
+  const dAgg = [...S.dealerAgg].sort((a,b)=>b.total-a.total).slice(0,15);
+  makeChart('chDealer','bar',{
+    labels: dAgg.map(o=>o.dealer),
+    datasets:[{label:'Αιτήσεις',data:dAgg.map(o=>o.total),backgroundColor:'#fb923c'}]
+  },{indexAxis:'y'});
+
+  // 5. Status per master (stacked)
+  makeChart('chMasterStatus','bar',{
+    labels: mAgg.map(o=>o.master),
+    datasets:[
+      {label:'Closed',data:mAgg.map(o=>o.closed),backgroundColor:'#22c55e',stack:'s'},
+      {label:'Εκκρ.', data:mAgg.map(o=>o.pending),backgroundColor:'#f59e0b',stack:'s'},
+      {label:'Ακυρ.', data:mAgg.map(o=>o.cancelled),backgroundColor:'#ef4444',stack:'s'},
+      {label:'Άλλα',  data:mAgg.map(o=>o.other),backgroundColor:'#64748b',stack:'s'}
+    ]
+  },{scales:{x:{stacked:true,ticks:{color:'#94a3b8'}},y:{stacked:true,ticks:{color:'#94a3b8'}}}});
+
+  // 6. Type
+  let r=0,a=0;
+  for(const x of S.filtered){ if(x.type==='ΡΕΥΜΑ') r++; else if(x.type==='ΑΕΡΙΟ') a++; }
+  makeChart('chType','doughnut',{
+    labels:['ΡΕΥΜΑ','ΑΕΡΙΟ'],
+    datasets:[{data:[r,a],backgroundColor:['#38bdf8','#fb923c']}]
+  });
+}
+
+// ── EXPORTS ───────────────────────────────────────────────────────
+// Style identical to ΑΡΧΕΙΟ LUMINARITY 2026 + extra columns for status update + interval
+function buildLumStyleRow(r){
+  return {
+    'HM/MM/EE': r.date instanceof Date? r.date : (r.date||''),
+    'ΟΝΟΜΑΤΕΠΩΝΥΜΟ': r.name,
+    'ΑΦΜ': r.afm,
+    'ΤΥΠΟΣ ΠΑΡΟΧΗΣ': r.type,
+    'ΑΡ ΠΑΡΟΧΗΣ': r.supply,
+    'DEALER': r.dealer,
+    'ΤΥΠΟΣ ΑΙΤΗΣΗΣ': r.appType,
+    'STATUS': r.status,
+    'ΠΡΟΓΡΑΜΜΑ': r.program,
+    'ΜΗΝΑΣ ΑΡΧΕΙΟΥ': r.month,
+    'ΠΑΛΙΟ STATUS': r.originalStatus,
+    'ΕΝΗΜΕΡΩΣΗ': r.updated? 'ΝΑΙ':'',
+    'REASON': r.reason||'',
+    'ΔΙΑΣΤΗΜΑ ΑΠΟ ΠΡΟΗΓ. (ΗΜ)': (r._intervalDays!=null && r._intervalDays!=='') ? r._intervalDays : ''
+  };
+}
+// Group rows by groupKey, sort each by date, compute interval days from previous row of same group
+function withIntervals(rows, groupKey='dealer'){
+  const groups = new Map();
+  for(const r of rows){
+    const k = r[groupKey] || '–';
+    if(!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  const out = [];
+  // sort group keys alphabetically (greek)
+  const sortedKeys = [...groups.keys()].sort((a,b)=>String(a).localeCompare(String(b),'el'));
+  for(const k of sortedKeys){
+    const sorted = [...groups.get(k)].sort((a,b)=>(parseGreekDateTime(a.date)||0)-(parseGreekDateTime(b.date)||0));
+    let prevTs = null;
+    for(const r of sorted){
+      const ts = parseGreekDateTime(r.date) || null;
+      const interval = (prevTs && ts) ? Math.round((ts-prevTs)/86400000) : '';
+      prevTs = ts || prevTs;
+      out.push(Object.assign({}, r, {_intervalDays: interval}));
+    }
+  }
+  return out;
+}
+// Style sheet with widened columns
+function applyColumnWidths(ws, rowSample){
+  if(!rowSample) return;
+  const keys = Object.keys(rowSample);
+  ws['!cols'] = keys.map(k=>{
+    const wch = Math.min(Math.max(k.length+2, 12), 38);
+    if(/ΓΡΑΜΜΟΓΡΑΦΗΣΗ|REASON/i.test(k)) return {wch:48};
+    if(/ΟΝΟΜΑΤΕΠΩΝΥΜΟ|DEALER|ΠΡΟΓΡΑΜΜΑ/i.test(k)) return {wch:28};
+    if(/ΑΡ ΠΑΡΟΧΗΣ|ΑΦΜ/i.test(k)) return {wch:18};
+    return {wch};
+  });
+}
+// Backwards-compat wrapper used by the older "single workbook" exports
+function buildDetailRow(r){ return buildLumStyleRow(r); }
+function buildSummaryRow(o){
+  return {
+    'Master': o.master,
+    'Dealer': o.dealer,
+    'Σύνολο': o.total,
+    'Closed': o.closed,
+    'Εκκρεμότητες': o.pending,
+    'Ακυρωμένες': o.cancelled,
+    'Δεν Βρέθηκαν': o.missing||0,
+    'Ρεύμα': o.reuma,
+    'Αέριο': o.aerio,
+    '% Closed': o.total? +(o.closed/o.total*100).toFixed(1):0
+  };
+}
+function safeSheetName(name){
+  let n = String(name||'sheet').replace(/[\\\/\?\*\[\]:]/g,'_').slice(0,31);
+  return n||'sheet';
+}
+function downloadWB(wb,fname){ XLSX.writeFile(wb,fname); }
+
+// ── BACK-OFFICE STYLED REPORT (ίδιο layout με αρχεία στο BACK OFFICE/REPORTS) ──
+const REPORT_HEADERS = ['HM/MM/EE','ΟΝΟΜΑΤΕΠΩΝΥΜΟ','ΑΦΜ','ΤΥΠΟΣ ΠΑΡΟΧΗΣ','ΑΡ ΠΑΡΟΧΗΣ','DEALER','ΤΥΠΟΣ ΑΙΤΗΣΗΣ','STATUS','ΠΡΟΓΡΑΜΜΑ',' ',' '];
+const REPORT_WIDTHS = [11,51,12,16,15,38,17,20,32,5,60];
+function buildKComment(r){
+  const hit = S.dailyMap.get(r.supply);
+  if(!hit){
+    if(classifyStatus(r.status)==='missing') return 'Δεν βρέθηκε στο ρεπόρτ';
+    return '';
+  }
+  const sheet = (hit.sheet||'');
+  const u = up(sheet);
+  if(u.includes('ΑΝΑΜΟΝ')) return `Αναμονή Πελάτη: ${hit.reason || hit.newStatus}`;
+  if(u.includes('MISSING')||u.includes('ΜISSING')) return `Missing Docs: ${hit.reason || hit.newStatus}`;
+  if(u.includes('DATA'))    return `Data: ${hit.newStatus}`;
+  return `${sheet}: ${hit.newStatus}`.trim();
+}
+async function buildStyledReportBuffer(rows){
+  if(typeof ExcelJS==='undefined') throw new Error('ExcelJS δεν φορτώθηκε');
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Report');
+  ws.columns = REPORT_WIDTHS.map(w=>({width:w}));
+  ws.addRow(REPORT_HEADERS);
+  const hdr = ws.getRow(1);
+  hdr.height = 22;
+  hdr.eachCell({includeEmpty:true},(cell,col)=>{
+    if(col>11) return;
+    cell.font = {bold:true, color:{argb:'FF000000'}};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFDAF2D0'}};
+    cell.alignment = {horizontal:'center', vertical:'center', wrapText:true};
+    cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+  });
+  // sort: παλαιότερη → πιο πρόσφατη
+  const sorted = [...rows].sort((a,b)=>(parseGreekDateTime(a.date)||0)-(parseGreekDateTime(b.date)||0));
+  for(const r of sorted){
+    const isClosed = classifyStatus(r.status)==='closed';
+    const row = ws.addRow([
+      r.date instanceof Date ? r.date : (r.date ? new Date(parseGreekDateTime(r.date)||r.date) : ''),
+      r.name, r.afm, r.type, r.supply, r.dealer, r.appType, r.status, r.program,
+      isClosed,
+      buildKComment(r)
+    ]);
+    row.getCell(1).numFmt = 'd/m/yyyy';
+    row.getCell(11).alignment = {wrapText:false, vertical:'center'};
+    // soft tint for non-closed rows in column J/H
+    const cls = classifyStatus(r.status);
+    if(cls==='closed'){
+      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFE6F4EA'}};
+    } else if(cls==='cancelled'){
+      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFCE4E4'}};
+    } else if(cls==='missing'){
+      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE6CC'}};
+    } else if(cls==='pending'){
+      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4CE'}};
+    }
+  }
+  ws.views = [{state:'frozen', ySplit:1}];
+  ws.autoFilter = {from:{row:1,column:1}, to:{row:1,column:11}};
+  return await wb.xlsx.writeBuffer();
+}
+function workbookToBlob(wb){
+  const out = XLSX.write(wb,{bookType:'xlsx',type:'array'});
+  return new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+async function downloadZip(files, zipName){
+  if(typeof JSZip==='undefined'){ alert('JSZip δεν φορτώθηκε. Έλεγξε σύνδεση internet.'); return; }
+  const zip = new JSZip();
+  for(const {name, blob} of files) zip.file(name, blob);
+  const zb = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(zb);
+  const a = document.createElement('a');
+  a.href = url; a.download = zipName; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+function buildWorkbookForRows(rows, sheetTitle){
+  const wb = XLSX.utils.book_new();
+  const sorted = withIntervals(rows);
+  const data = sorted.map(buildLumStyleRow);
+  const ws = XLSX.utils.json_to_sheet(data);
+  if(data.length) applyColumnWidths(ws, data[0]);
+  XLSX.utils.book_append_sheet(wb, ws, safeSheetName(sheetTitle||'Αιτήσεις'));
+  return wb;
+}
+
+function ddmmyyyy(){
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`;
+}
+async function exportPerMasterFiles(){
+  if(S.filtered.length===0) { alert('Δεν υπάρχουν εγγραφές στο τρέχον φίλτρο.'); return; }
+  const byM = new Map();
+  for(const r of S.filtered){
+    const m = r.master||'(χωρίς master)';
+    if(!byM.has(m)) byM.set(m,[]);
+    byM.get(m).push(r);
+  }
+  addLog(`⏳ Δημιουργία ${byM.size} αρχείων…`);
+  const files = [];
+  for(const [m, rows] of byM){
+    const buf = await buildStyledReportBuffer(rows);
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    files.push({name:`Report_${safeSheetName(m)}_${ddmmyyyy()}.xlsx`, blob});
+  }
+  await downloadZip(files, `Reports_per_Master_${ddmmyyyy()}.zip`);
+  addLog(`<span class="ok">✓ Λήψη ZIP με ${files.length} αρχεία (Per Master)</span>`);
+}
+
+async function exportPerDealerFiles(){
+  if(S.filtered.length===0){ alert('Δεν υπάρχουν εγγραφές στο τρέχον φίλτρο.'); return; }
+  const selectedDealers = getMS('msDealer');
+  const byD = new Map();
+  for(const r of S.filtered){
+    const d = r.dealer||'(άγνωστος)';
+    if(!byD.has(d)) byD.set(d,[]);
+    byD.get(d).push(r);
+  }
+  let dealersToExport = [...byD.keys()];
+  if(selectedDealers.length>0){
+    dealersToExport = dealersToExport.filter(d=>selectedDealers.includes(d));
+  }
+  if(dealersToExport.length===0){ alert('Δεν βρέθηκαν dealers για export.'); return; }
+  if(dealersToExport.length>30 && selectedDealers.length===0){
+    if(!confirm(`Θα δημιουργηθούν ${dealersToExport.length} αρχεία (ένα ανά dealer). Συνέχεια;`)) return;
+  }
+  addLog(`⏳ Δημιουργία ${dealersToExport.length} αρχείων…`);
+  const files = [];
+  for(const d of dealersToExport){
+    const rows = byD.get(d) || [];
+    const buf = await buildStyledReportBuffer(rows);
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    files.push({name:`Report_${safeSheetName(d)}_${ddmmyyyy()}.xlsx`, blob});
+  }
+  await downloadZip(files, `Reports_per_Dealer_${ddmmyyyy()}.zip`);
+  addLog(`<span class="ok">✓ Λήψη ZIP με ${files.length} αρχεία (Per Dealer)</span>`);
+}
+
+function exportPerMaster(){
+  if(S.filtered.length===0) return;
+  const wb = XLSX.utils.book_new();
+  const used = new Set();
+  // master summary sheet first
+  const sumSheet = XLSX.utils.json_to_sheet(S.masterAgg.map(o=>({
+    'Master': o.master,
+    'Σύνολο': o.total, 'Closed': o.closed,'Εκκρ.': o.pending,'Ακυρ.': o.cancelled,'Δεν Βρέθηκαν': o.missing||0,
+    'Ρεύμα': o.reuma,'Αέριο': o.aerio,'Dealers': o.dealers,
+    '% Closed': o.total? +(o.closed/o.total*100).toFixed(1):0
+  })));
+  XLSX.utils.book_append_sheet(wb,sumSheet,'Σύνοψη Masters'); used.add('Σύνοψη Masters');
+
+  // group by master
+  const byM = new Map();
+  for(const r of S.filtered){
+    const m = r.master||'(χωρίς master)';
+    if(!byM.has(m)) byM.set(m,[]);
+    byM.get(m).push(r);
+  }
+  const sorted = [...byM.entries()].sort((a,b)=>b[1].length-a[1].length);
+  for(const [m,rows] of sorted){
+    const data = withIntervals(rows).map(buildLumStyleRow);
+    const ws = XLSX.utils.json_to_sheet(data);
+    if(data.length) applyColumnWidths(ws, data[0]);
+    let nm = safeSheetName(m); let i=1;
+    while(used.has(nm)){ nm = safeSheetName(m+'_'+(++i)); }
+    used.add(nm);
+    XLSX.utils.book_append_sheet(wb,ws,nm);
+  }
+  downloadWB(wb,`Report_per_Master_Dealer_${todayStr()}.xlsx`);
+}
+
+function exportPerDealer(){
+  if(S.filtered.length===0) return;
+  const wb = XLSX.utils.book_new();
+  const used = new Set();
+  const sumSheet = XLSX.utils.json_to_sheet(S.dealerAgg.map(buildSummaryRow));
+  XLSX.utils.book_append_sheet(wb,sumSheet,'Σύνοψη Dealers'); used.add('Σύνοψη Dealers');
+
+  const byD = new Map();
+  for(const r of S.filtered){
+    const k = (r.master||'–')+' / '+(r.dealer||'(άγνωστος)');
+    if(!byD.has(k)) byD.set(k,[]);
+    byD.get(k).push(r);
+  }
+  const sorted = [...byD.entries()].sort((a,b)=>b[1].length-a[1].length);
+  for(const [k,rows] of sorted){
+    const data = rows.map(buildDetailRow);
+    const ws = XLSX.utils.json_to_sheet(data);
+    let nm = safeSheetName(k.split(' / ').pop()); let i=1;
+    while(used.has(nm)){ nm = safeSheetName(nm+'_'+(++i)); }
+    used.add(nm);
+    XLSX.utils.book_append_sheet(wb,ws,nm);
+  }
+  downloadWB(wb,`Report_per_Dealer_${todayStr()}.xlsx`);
+}
+
+async function exportFiltered(kind){
+  if(S.filtered.length===0) return;
+  if(kind==='detail'){
+    addLog('⏳ Δημιουργία styled αρχείου…');
+    const buf = await buildStyledReportBuffer(S.filtered);
+    const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Report_${ddmmyyyy()}.xlsx`; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(url); a.remove();}, 1200);
+    addLog('<span class="ok">✓ Λήψη Συνολικού αρχείου</span>');
+    return;
+  }
+  const wb = XLSX.utils.book_new();
+  {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(S.masterAgg.map(o=>({
+      'Master': o.master,'Σύνολο': o.total,'Closed': o.closed,'Εκκρ.': o.pending,'Ακυρ.': o.cancelled,'Δεν Βρέθηκαν': o.missing||0,
+      'Ρεύμα': o.reuma,'Αέριο': o.aerio,'Dealers': o.dealers,
+      '% Closed': o.total? +(o.closed/o.total*100).toFixed(1):0
+    }))),'Σύνοψη Masters');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(S.dealerAgg.map(buildSummaryRow)),'Σύνοψη Dealers');
+  }
+  downloadWB(wb,`Report_${kind}_${todayStr()}.xlsx`);
+}
+
+function todayStr(){
+  const d = new Date();
+  const pad = n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+}
+
+</script>
+</body>
+</html>

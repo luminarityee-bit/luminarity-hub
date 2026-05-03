@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Αμοιβών ΔΕΗ – LUMINARITY</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0f172a;--card:#1e293b;--border:#334155;
+  --accent:#38bdf8;--green:#22c55e;--red:#ef4444;
+  --yellow:#f59e0b;--purple:#a78bfa;--orange:#fb923c;
+  --text:#e2e8f0;--muted:#94a3b8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:14px;}
+h1{font-size:1.4rem;font-weight:700;}
+h2{font-size:.95rem;font-weight:600;color:var(--accent);}
+
+.header{background:var(--card);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px;}
+.logo{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:900;color:#0f172a;font-size:18px;flex-shrink:0;}
+.main{max-width:1500px;margin:0 auto;padding:24px;}
+
+/* UPLOAD */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.upload-card{background:var(--card);border:2px dashed var(--border);border-radius:12px;padding:20px;transition:border-color .2s;}
+.upload-card:hover{border-color:var(--accent);}
+.upload-card h2{margin-bottom:6px;}
+.upload-card p{color:var(--muted);font-size:12px;margin-bottom:12px;line-height:1.5;}
+.upload-card input[type=file]{width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;}
+.file-tag{display:inline-flex;align-items:center;gap:6px;background:#1e3a5f;border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:12px;margin-top:10px;}
+.file-tag .badge{background:var(--accent);color:#0f172a;border-radius:4px;padding:1px 7px;font-weight:700;font-size:11px;}
+
+/* COL PICKER */
+.col-picker{display:none;margin-top:14px;background:var(--bg);border:1px solid var(--yellow);border-radius:8px;padding:14px;}
+.col-picker .warn{color:var(--yellow);font-size:12px;font-weight:700;margin-bottom:10px;}
+.col-picker-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.col-picker label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;}
+.col-picker select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 8px;cursor:pointer;}
+.col-picker select:focus{outline:none;border-color:var(--accent);}
+.autodetect-ok{display:none;margin-top:10px;font-size:12px;color:var(--green);}
+
+/* BUTTONS */
+.btn-run{display:block;width:100%;padding:12px;background:var(--accent);color:#0f172a;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:24px;transition:opacity .2s;}
+.btn-run:disabled{opacity:.4;cursor:not-allowed;}
+.btn-run:not(:disabled):hover{opacity:.85;}
+.btn{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid;transition:all .15s;}
+.btn-green{background:#14532d;border-color:var(--green);color:var(--green);}
+.btn-green:hover{background:var(--green);color:#0f172a;}
+.btn-blue{background:#0c2e4a;border-color:var(--accent);color:var(--accent);}
+.btn-blue:hover{background:var(--accent);color:#0f172a;}
+.btn-outline{background:transparent;border-color:var(--border);color:var(--muted);}
+.btn-outline:hover{border-color:var(--accent);color:var(--text);}
+
+/* LOG */
+#log{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);margin-bottom:20px;display:none;}
+#log.on{display:block;}
+#log .ok{color:var(--green);}
+#log .warn{color:var(--yellow);}
+#log .err{color:var(--red);}
+
+/* KPI */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.kpi .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.kpi .val{font-size:1.6rem;font-weight:700;}
+.kpi .sub{font-size:11px;color:var(--muted);margin-top:3px;}
+.kv-accent .val{color:var(--accent);}
+.kv-green .val{color:var(--green);}
+.kv-yellow .val{color:var(--yellow);}
+.kv-purple .val{color:var(--purple);}
+.kv-orange .val{color:var(--orange);}
+
+/* TOOLBAR */
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:16px;}
+.toolbar .sep{width:1px;height:24px;background:var(--border);}
+.search-input{padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;width:260px;}
+.search-input:focus{outline:none;border-color:var(--accent);}
+.filter-select{padding:7px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;cursor:pointer;}
+.filter-select:focus{outline:none;border-color:var(--accent);}
+.result-count{font-size:12px;color:var(--muted);margin-left:auto;}
+
+/* TABS */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px;}
+.tab{padding:8px 18px;cursor:pointer;border-radius:8px 8px 0 0;color:var(--muted);font-weight:500;border:1px solid transparent;border-bottom:none;transition:all .15s;}
+.tab.active{background:var(--card);color:var(--accent);border-color:var(--border);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+.tbadge{background:var(--orange);color:#0f172a;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:5px;}
+
+/* TABLE */
+.tbl-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.tbl-wrap table{width:100%;border-collapse:collapse;}
+.tbl-wrap thead th{background:#1a2744;padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;}
+.tbl-wrap thead th:hover{color:var(--accent);}
+.tbl-wrap thead th.sa::after{content:' ▲';color:var(--accent);}
+.tbl-wrap thead th.sd::after{content:' ▼';color:var(--accent);}
+.tbl-wrap tbody tr{border-bottom:1px solid var(--border);transition:background .1s;}
+.tbl-wrap tbody tr:last-child{border-bottom:none;}
+.tbl-wrap tbody tr:hover{background:#1e2d4a;}
+.tbl-wrap td{padding:9px 12px;font-size:13px;}
+.empty{padding:48px;text-align:center;color:var(--muted);}
+.empty .icon{font-size:2.5rem;margin-bottom:10px;}
+
+/* BADGES */
+.bdg{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.bdg-blue{background:#0c2e4a;color:var(--accent);}
+.bdg-purple{background:#2e1065;color:var(--purple);}
+.bdg-green{background:#14532d;color:var(--green);}
+.bdg-yellow{background:#78350f;color:#fcd34d;}
+.bdg-red{background:#7f1d1d;color:#fca5a5;}
+
+/* SUMMARY DEALER CARDS */
+.dealer-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:24px;}
+.dc{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;cursor:pointer;transition:border-color .15s;}
+.dc:hover,.dc.sel{border-color:var(--accent);}
+.dc.sel{background:#162030;}
+.dc-name{font-weight:700;margin-bottom:10px;font-size:.95rem;}
+.dc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;}
+.dc-stat .sv{font-size:1.1rem;font-weight:700;}
+.dc-stat .sl{font-size:10px;color:var(--muted);text-transform:uppercase;}
+.dc-bar{height:4px;background:var(--border);border-radius:2px;margin-top:10px;overflow:hidden;}
+.dc-bar-fill{height:100%;background:var(--accent);border-radius:2px;}
+
+/* PAGER */
+.pager{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card);border-top:1px solid var(--border);}
+.pager span{font-size:12px;color:var(--muted);}
+.pager-btns{display:flex;gap:6px;}
+.pager-btns button{padding:4px 12px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);cursor:pointer;font-size:12px;}
+.pager-btns button:hover:not(:disabled){border-color:var(--accent);}
+.pager-btns button:disabled{opacity:.3;cursor:default;}
+
+/* TOGGLE BUTTONS */
+.toggle-btn{padding:7px 14px;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+.toggle-btn.active{background:var(--accent);color:#0f172a;}
+.toggle-btn:not(.active):hover{color:var(--text);}
+
+@media(max-width:900px){.upload-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">L</div>
+  <div>
+    <h1>Dashboard Αμοιβών ΔΕΗ</h1>
+    <div style="font-size:12px;color:var(--muted)">LUMINARITY 2026 — Αντιστοίχιση Παροχών & Εξαγωγή ανά Συνεργάτη</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- UPLOAD -->
+  <div class="upload-grid">
+
+    <div class="upload-card">
+      <h2>📂 ΑΡΧΕΙΟ LUMINARITY 2026</h2>
+      <p>Το αρχείο με τα φύλλα ανά μήνα (ΙΑΝΟΥΑΡΙΟΣ, ΦΕΒΡΟΥΑΡΙΟΣ, ΜΑΡΤΙΟΣ…).<br>Διαβάζονται αυτόματα όλα τα φύλλα δεδομένων.</p>
+      <input type="file" id="fileLum" accept=".xlsx,.xls,.xlsm" onchange="loadLum(this)">
+      <div id="tagLum"></div>
+    </div>
+
+    <div class="upload-card">
+      <h2>💶 Αρχείο Αμοιβών ΔΕΗ</h2>
+      <p>Το αρχείο που στέλνει η ΔΕΗ. Η δομή αναγνωρίζεται αυτόματα.<br>Χρειάζονται οι στήλες με αριθμό παροχής ρεύματος και αερίου.</p>
+      <input type="file" id="fileDeh" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadDeh(this)">
+      <div id="tagDeh"></div>
+      <div id="autoDetectMsg" class="autodetect-ok"></div>
+      <div class="col-picker" id="colPicker">
+        <div class="warn">⚠️ Δεν αναγνωρίστηκαν αυτόματα — επιλέξτε χειροκίνητα:</div>
+        <div class="col-picker-grid">
+          <div>
+            <label>Στήλη Αρ. Παροχής ΡΕΥΜΑ</label>
+            <select id="selEl" onchange="onColPick()"><option value="">— επιλέξτε —</option></select>
+          </div>
+          <div>
+            <label>Στήλη Αρ. Παροχής ΑΕΡΙΟ</label>
+            <select id="selGas" onchange="onColPick()"><option value="">— επιλέξτε —</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="btn-run" id="btnRun" onclick="analyze()" disabled>⚡ Εκτέλεση Αντιστοίχισης</button>
+  <div id="log"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid" style="display:none">
+    <div class="kpi kv-accent">
+      <div class="lbl">Εγγραφές ΔΕΗ</div>
+      <div class="val" id="kDeh">–</div>
+      <div class="sub" id="kDehSub"></div>
+    </div>
+    <div class="kpi kv-green">
+      <div class="lbl">Αντιστοιχίστηκαν</div>
+      <div class="val" id="kMatch">–</div>
+      <div class="sub" id="kMatchSub"></div>
+    </div>
+    <div class="kpi kv-yellow">
+      <div class="lbl">Δεν Βρέθηκαν</div>
+      <div class="val" id="kUnm">–</div>
+      <div class="sub" id="kUnmSub"></div>
+    </div>
+    <div class="kpi kv-purple">
+      <div class="lbl">Συνεργάτες</div>
+      <div class="val" id="kDealers">–</div>
+      <div class="sub" id="kDealersSub"></div>
+    </div>
+    <div class="kpi kv-orange">
+      <div class="lbl">Κορυφαίος</div>
+      <div class="val" id="kTop" style="font-size:.95rem;line-height:1.3">–</div>
+      <div class="sub" id="kTopSub"></div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs" id="tabsEl" style="display:none">
+    <div class="tab active" data-tab="summary" onclick="switchTab(this)">📊 Ανά Συνεργάτη</div>
+    <div class="tab" data-tab="detail" onclick="switchTab(this)">🔍 Αναλυτικά</div>
+    <div class="tab" data-tab="unmatched" onclick="switchTab(this)">⚠️ Αναντίστοιχες <span class="tbadge" id="unmBadge">0</span></div>
+  </div>
+
+  <!-- TAB SUMMARY -->
+  <div class="tab-panel active" id="panelSummary">
+    <div class="toolbar" id="summaryToolbar" style="display:none">
+      <input class="search-input" id="summarySearch" placeholder="Αναζήτηση…" oninput="renderSummary()">
+      <select class="filter-select" id="fType" onchange="renderSummary()">
+        <option value="">Όλοι τύποι</option>
+        <option value="ΡΕΥΜΑ">Μόνο ΡΕΥΜΑ</option>
+        <option value="ΑΕΡΙΟ">Μόνο ΑΕΡΙΟ</option>
+      </select>
+      <div class="sep"></div>
+      <div style="display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden;">
+        <button id="toggleDealer" class="toggle-btn active" onclick="setGroupMode('dealer')">👤 Ανά Συνεργάτη</button>
+        <button id="toggleMaster" class="toggle-btn" onclick="setGroupMode('master')">🏢 Ανά Master Dealer</button>
+      </div>
+      <div class="sep"></div>
+      <select class="filter-select" id="exportMode" style="min-width:260px">
+        <option value="all_dealer">Εξαγωγή: Όλοι ανά Συνεργάτη</option>
+        <option value="all_master">Εξαγωγή: Όλοι ανά Master Dealer</option>
+      </select>
+      <button class="btn btn-green" onclick="doExport()">⬇ Εξαγωγή</button>
+      <span class="result-count" id="summaryCount"></span>
+    </div>
+    <div id="dealerCardsWrap"></div>
+    <div class="empty" id="summaryEmpty" style="display:none">
+      <div class="icon">📭</div><div>Δεν βρέθηκαν αποτελέσματα.</div>
+    </div>
+  </div>
+
+  <!-- TAB DETAIL -->
+  <div class="tab-panel" id="panelDetail">
+    <div class="toolbar">
+      <input class="search-input" id="detailSearch" placeholder="Παροχή, Όνομα, Συνεργάτης…" oninput="renderDetail()">
+      <select class="filter-select" id="fMaster" onchange="renderDetail()"><option value="">Όλα Master Dealers</option></select>
+      <select class="filter-select" id="fDealer" onchange="renderDetail()"><option value="">Όλοι Συνεργάτες</option></select>
+      <select class="filter-select" id="fTypeD" onchange="renderDetail()">
+        <option value="">Όλοι Τύποι</option>
+        <option value="ΡΕΥΜΑ">ΡΕΥΜΑ</option>
+        <option value="ΑΕΡΙΟ">ΑΕΡΙΟ</option>
+      </select>
+      <select class="filter-select" id="fMonth" onchange="renderDetail()"><option value="">Όλοι Μήνες</option></select>
+      <button class="btn btn-outline" onclick="resetDetailFilters()">✕ Καθαρισμός</button>
+      <button class="btn btn-blue" onclick="exportFiltered()">⬇ Εξαγωγή Επιλεγμένου</button>
+      <span class="result-count" id="detailCount"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="sortD('master')">Master Dealer</th>
+          <th onclick="sortD('dealer')">Συνεργάτης</th>
+          <th onclick="sortD('supply')">Αρ. Παροχής</th>
+          <th onclick="sortD('type')">Τύπος</th>
+          <th onclick="sortD('name')">Ονοματεπώνυμο</th>
+          <th onclick="sortD('afm')">ΑΦΜ</th>
+          <th onclick="sortD('appType')">Τύπος Αίτησης</th>
+          <th onclick="sortD('program')">Πρόγραμμα</th>
+          <th onclick="sortD('status')">Status</th>
+          <th onclick="sortD('month')">Μήνας</th>
+        </tr></thead>
+        <tbody id="detailTbody"></tbody>
+      </table>
+    </div>
+    <div class="pager" id="detailPager" style="display:none">
+      <span id="pagerInfo"></span>
+      <div class="pager-btns">
+        <button id="btnPrev" onclick="changePage(-1)">‹ Προηγ</button>
+        <button id="btnNext" onclick="changePage(1)">Επόμ ›</button>
+      </div>
+    </div>
+    <div class="empty" id="detailEmpty" style="display:none">
+      <div class="icon">🔍</div><div>Δεν βρέθηκαν εγγραφές.</div>
+    </div>
+  </div>
+
+  <!-- TAB UNMATCHED -->
+  <div class="tab-panel" id="panelUnmatched">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px" id="unmInfo"></div>
+    <div class="tbl-wrap" id="unmWrap" style="display:none">
+      <table>
+        <thead><tr id="unmHdr"></tr></thead>
+        <tbody id="unmBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="unmEmpty">
+      <div class="icon">✅</div><div>Όλες οι παροχές αντιστοιχίστηκαν!</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+const S = {
+  lumRows: [],   // parsed from LUMINARITY
+  dehHeaders: [],
+  dehRows: [],
+  elCol: -1,
+  gasCol: -1,
+  matched: [],  // {lum, dehRow}
+  unmatched: [], // DEH rows with no match
+  page: 0,
+  pageSize: 60,
+  dSortKey: 'dealer',
+  dSortDir: 1,
+};
+
+// ─── HELPERS ─────────────────────────────────────────────────
+function norm(v){ return String(v ?? '').trim().replace(/\.0+$/, ''); }
+
+function addLog(msg, cls=''){
+  const el = document.getElementById('log');
+  el.classList.add('on');
+  el.innerHTML += `<span class="${cls}">${msg}</span><br>`;
+}
+
+function checkReady(){
+  const ok = S.lumRows.length > 0 && S.dehRows.length > 0 && (S.elCol >= 0 || S.gasCol >= 0);
+  document.getElementById('btnRun').disabled = !ok;
+}
+
+const SKIP = new Set(['ΛΙΣΤΕΣ','DASH_DATA','LISTS','DASHBOARD','CHART']);
+const MONTHS_GR = ['ΙΑΝΟΥ','ΦΕΒΡΟ','ΜΑΡΤΙ','ΑΠΡΙΛ','ΜΑΙΟΣ','ΙΟΥΝΙ','ΙΟΥΛΙ','ΑΥΓΟΥ','ΣΕΠΤΕ','ΟΚΤΩΒ','ΝΟΕΜΒ','ΔΕΚΕΜ'];
+
+function isDataSheet(name){
+  const u = name.toUpperCase();
+  if(SKIP.has(u.trim())) return false;
+  return MONTHS_GR.some(m => u.includes(m)) || /20[0-9]{2}/.test(u);
+}
+
+function findCol(headers, ...terms){
+  for(let i = 0; i < headers.length; i++){
+    const h = String(headers[i] ?? '').toLowerCase();
+    if(terms.some(t => h.includes(t.toLowerCase()))) return i;
+  }
+  return -1;
+}
+
+// ─── LOAD LUMINARITY ─────────────────────────────────────────
+function loadLum(inp){
+  const file = inp.files[0];
+  if(!file) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+      S.lumRows = [];
+      let sheets = 0;
+
+      // Build master-dealer lookup from ΛΙΣΤΕΣ sheet
+      // Structure: col5=Master(LUMIN/ΑΛΕΞ/ΞΗΡ), col6=dealer_name, col7=dealer_code
+      const masterByName = new Map(); // dealer_name_upper → master
+      const masterByCode = new Map(); // dealer_code_upper → master
+      const listsSheet = wb.Sheets['ΛΙΣΤΕΣ'] || wb.Sheets['LISTS'];
+      if(listsSheet){
+        const listsRaw = XLSX.utils.sheet_to_json(listsSheet, {header:1, defval:null});
+        for(let i = 1; i < listsRaw.length; i++){
+          const r = listsRaw[i];
+          const master = String(r[5] ?? '').trim();
+          const dName  = String(r[6] ?? '').trim().toUpperCase();
+          const dCode  = String(r[7] ?? '').trim().toUpperCase();
+          if(master && dName) masterByName.set(dName, master);
+          if(master && dCode) masterByCode.set(dCode, master);
+        }
+        addLog(`✓ ΛΙΣΤΕΣ: ${masterByName.size} dealer → master αντιστοιχίες`);
+      }
+
+      for(const shName of wb.SheetNames){
+        if(!isDataSheet(shName)) continue;
+        const ws = wb.Sheets[shName];
+        const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+        if(raw.length < 2) continue;
+
+        const hdr = raw[0].map(h => String(h ?? '').trim());
+
+        // Column detection — by name first, then fixed index
+        let cDate   = findCol(hdr,'HM/MM','ΗΜΕΡΟΜ');            if(cDate<0)   cDate=0;
+        let cName   = findCol(hdr,'ΟΝΟΜΑΤ','NAME');              if(cName<0)   cName=1;
+        let cAfm    = findCol(hdr,'ΑΦΜ','AFM');                  if(cAfm<0)    cAfm=2;
+        let cType   = findCol(hdr,'ΤΥΠΟΣ ΠΑΡΟΧ');                if(cType<0)   cType=3;
+        let cSupply = findCol(hdr,'ΑΡ ΠΑΡΟΧ','ΑΡΙΘΜ ΠΑΡΟΧ');    if(cSupply<0) cSupply=4;
+        let cDealer = findCol(hdr,'DEALER','ΣΥΝΕΡΓ');            if(cDealer<0) cDealer=5;
+        let cApp    = findCol(hdr,'ΤΥΠΟΣ ΑΙΤΗΣ');                if(cApp<0)    cApp=6;
+        let cStatus = findCol(hdr,'STATUS');                      if(cStatus<0) cStatus=7;
+        let cProg   = findCol(hdr,'ΠΡΟΓΡΑΜ');                    if(cProg<0)   cProg=8;
+        let cGramm  = findCol(hdr,'ΓΡΑΜΜΟΓΡΑΦ');                 if(cGramm<0)  cGramm=13;
+
+        let cnt = 0;
+        for(let i = 1; i < raw.length; i++){
+          const r = raw[i];
+          const supply = r[cSupply];
+          const dealer = r[cDealer];
+          if(!supply || !dealer) continue;
+          const rawType = String(r[cType] ?? '').toUpperCase();
+          const type = rawType.includes('ΑΕΡΙΟ') ? 'ΑΕΡΙΟ'
+                     : (rawType.includes('ΡΕΥΜΑ') || rawType.includes('REUMA')) ? 'ΡΕΥΜΑ'
+                     : rawType;
+          // Resolve master dealer: lookup by dealer name first, then by code from ΓΡΑΜΜΟΓΡΑΦΗΣΗ
+          const gramm = String(r[cGramm] ?? '');
+          const grParts = gramm.split('|').map(s => s.trim());
+          const dealerCode = grParts.length >= 7 ? grParts[6].toUpperCase() : '';
+          const master = masterByName.get(String(dealer).trim().toUpperCase())
+                      || masterByCode.get(dealerCode)
+                      || '';
+          S.lumRows.push({
+            date:    r[cDate]   ?? '',
+            name:    r[cName]   ?? '',
+            afm:     norm(r[cAfm]),
+            type,
+            supply:  norm(supply),
+            dealer:  String(dealer).trim(),
+            master:  master,
+            appType: r[cApp]    ?? '',
+            status:  r[cStatus] ?? '',
+            program: r[cProg]   ?? '',
+            month:   shName,
+          });
+          cnt++;
+        }
+        sheets++;
+        addLog(`<span class="ok">✓ ${shName}</span> — ${cnt} εγγραφές`);
+      }
+
+      addLog(`<br><span class="ok">LUMINARITY: ${S.lumRows.length} εγγραφές από ${sheets} φύλλα</span>`);
+      document.getElementById('tagLum').innerHTML =
+        `<div class="file-tag">${file.name} <span class="badge">${S.lumRows.length} εγγρ.</span></div>`;
+
+      // Populate month filter
+      const months = [...new Set(S.lumRows.map(r => r.month))];
+      const fM = document.getElementById('fMonth');
+      fM.innerHTML = '<option value="">Όλοι Μήνες</option>' +
+        months.map(m => `<option value="${m}">${m}</option>`).join('');
+    } catch(err){
+      addLog('❌ Σφάλμα LUMINARITY: ' + err.message, 'err');
+    }
+    checkReady();
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+// ─── LOAD DEH ────────────────────────────────────────────────
+function loadDeh(inp){
+  const file = inp.files[0];
+  if(!file) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      // Combine all sheets (skip header of 2nd+ sheets)
+      let allRows = null;
+      for(const shName of wb.SheetNames){
+        const ws = wb.Sheets[shName];
+        const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null});
+        if(!allRows){
+          allRows = raw;
+        } else {
+          for(let i = 1; i < raw.length; i++) allRows.push(raw[i]);
+        }
+      }
+      if(!allRows || allRows.length < 2){ addLog('❌ Κενό αρχείο ΔΕΗ', 'err'); return; }
+
+      S.dehHeaders = allRows[0].map(h => String(h ?? '').trim());
+      S.dehRows = allRows.slice(1).filter(r => r.some(c => c != null && c !== ''));
+
+      // Auto-detect supply columns
+      S.elCol  = findCol(S.dehHeaders, 'electricity supply', 'el supply', 'supply number el', 'supply el');
+      S.gasCol = findCol(S.dehHeaders, 'gas supply', 'gas supply number', 'supply gas', 'supply number gas');
+
+      const picker = document.getElementById('colPicker');
+      const autoMsg = document.getElementById('autoDetectMsg');
+
+      if(S.elCol >= 0 || S.gasCol >= 0){
+        picker.style.display = 'none';
+        let msg = '✓ Αναγνωρίστηκαν:';
+        if(S.elCol  >= 0) msg += ` ΡΕΥΜΑ → "${S.dehHeaders[S.elCol]}"`;
+        if(S.gasCol >= 0) msg += ` | ΑΕΡΙΟ → "${S.dehHeaders[S.gasCol]}"`;
+        autoMsg.style.display = 'block';
+        autoMsg.textContent = msg;
+        addLog(msg, 'ok');
+      } else {
+        // Manual picker
+        autoMsg.style.display = 'none';
+        picker.style.display = 'block';
+        const opts = S.dehHeaders.map((h,i) => `<option value="${i}">${h || '(col '+i+')'}</option>`).join('');
+        document.getElementById('selEl').innerHTML  = '<option value="">— επιλέξτε —</option>' + opts;
+        document.getElementById('selGas').innerHTML = '<option value="">— επιλέξτε —</option>' + opts;
+        addLog('⚠️ Επιλέξτε χειροκίνητα τις στήλες αρ. παροχής', 'warn');
+      }
+
+      document.getElementById('tagDeh').innerHTML =
+        `<div class="file-tag">${file.name} <span class="badge">${S.dehRows.length} εγγρ.</span></div>`;
+    } catch(err){
+      addLog('❌ Σφάλμα ΔΕΗ: ' + err.message, 'err');
+    }
+    checkReady();
+  };
+  rd.readAsArrayBuffer(file);
+}
+
+function onColPick(){
+  const el  = document.getElementById('selEl').value;
+  const gas = document.getElementById('selGas').value;
+  if(el  !== '') S.elCol  = parseInt(el);
+  if(gas !== '') S.gasCol = parseInt(gas);
+  checkReady();
+}
+
+// ─── ANALYZE ─────────────────────────────────────────────────
+function analyze(){
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('log').classList.add('on');
+
+  const reumaMap = new Map();
+  const aerioMap = new Map();
+  for(const r of S.lumRows){
+    const k = norm(r.supply);
+    if(!k) continue;
+    if(r.type === 'ΡΕΥΜΑ') reumaMap.set(k, r);
+    else if(r.type === 'ΑΕΡΙΟ') aerioMap.set(k, r);
+  }
+
+  S.matched = [];
+  S.unmatched = [];
+
+  for(const dRow of S.dehRows){
+    let found = false;
+
+    if(S.elCol >= 0){
+      const k = norm(dRow[S.elCol]);
+      if(k && reumaMap.has(k)){
+        S.matched.push({lum: reumaMap.get(k), dehRow: dRow});
+        found = true;
+      }
+    }
+    if(!found && S.gasCol >= 0){
+      const k = norm(dRow[S.gasCol]);
+      if(k && aerioMap.has(k)){
+        S.matched.push({lum: aerioMap.get(k), dehRow: dRow});
+        found = true;
+      }
+    }
+    if(!found) S.unmatched.push(dRow);
+  }
+
+  const pct = S.dehRows.length > 0 ? (S.matched.length / S.dehRows.length * 100).toFixed(1) : 0;
+  addLog(`<span class="ok">✓ Αντιστοιχίστηκαν: ${S.matched.length} / ${S.dehRows.length} (${pct}%)</span>`);
+  if(S.unmatched.length) addLog(`⚠️ Δεν βρέθηκαν: ${S.unmatched.length}`, 'warn');
+
+  // Populate dealer filter
+  const dealers = [...new Set(S.matched.map(m => m.lum.dealer))].sort();
+  const fD = document.getElementById('fDealer');
+  fD.innerHTML = '<option value="">Όλοι Συνεργάτες</option>' +
+    dealers.map(d => `<option value="${d}">${d}</option>`).join('');
+
+  // Populate master dealer filter
+  const masters = [...new Set(S.matched.map(m => m.lum.master).filter(Boolean))].sort();
+  const fM2 = document.getElementById('fMaster');
+  fM2.innerHTML = '<option value="">Όλα Master Dealers</option>' +
+    masters.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  // Populate export dropdown with specific master options
+  const expSel = document.getElementById('exportMode');
+  expSel.innerHTML =
+    '<option value="all_dealer">Εξαγωγή: Όλοι ανά Συνεργάτη</option>' +
+    '<option value="all_master">Εξαγωγή: Όλοι ανά Master Dealer</option>' +
+    '<option disabled>──────────────</option>' +
+    masters.map(m => `<option value="master:${m}">Master: ${m} (σύνολο + ανά συνεργάτη)</option>`).join('');
+
+  // Show UI
+  document.getElementById('kpiGrid').style.display = '';
+  document.getElementById('tabsEl').style.display = '';
+  document.getElementById('summaryToolbar').style.display = '';
+  document.getElementById('unmBadge').textContent = S.unmatched.length;
+
+  renderKPIs();
+  renderSummary();
+  renderDetail();
+  renderUnmatched();
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────
+function renderKPIs(){
+  const byDealer = groupByDealer(S.matched);
+  let topName = '–', topCnt = 0;
+  for(const [d, arr] of byDealer){
+    if(arr.length > topCnt){ topCnt = arr.length; topName = d; }
+  }
+
+  document.getElementById('kDeh').textContent     = S.dehRows.length;
+  document.getElementById('kDehSub').textContent  = `${S.elCol>=0?'Ρεύμα':''}${(S.elCol>=0&&S.gasCol>=0)?' + ':''}${S.gasCol>=0?'Αέριο':''}`;
+  document.getElementById('kMatch').textContent   = S.matched.length;
+  document.getElementById('kMatchSub').textContent= `${(S.matched.length/Math.max(S.dehRows.length,1)*100).toFixed(1)}% αντιστοίχιση`;
+  document.getElementById('kUnm').textContent     = S.unmatched.length;
+  document.getElementById('kUnmSub').textContent  = S.unmatched.length === 0 ? 'Πλήρης αντιστοίχιση ✓' : 'χωρίς match';
+  document.getElementById('kDealers').textContent = byDealer.size;
+  document.getElementById('kDealersSub').textContent = 'ενεργοί συνεργάτες';
+  document.getElementById('kTop').textContent     = topName;
+  document.getElementById('kTopSub').textContent  = topName !== '–' ? `${topCnt} παροχές` : '';
+}
+
+// ─── SUMMARY TAB ─────────────────────────────────────────────
+function groupByDealer(rows){ return groupByKey(rows, 'dealer'); }
+
+function renderSummary(){
+  const q     = document.getElementById('summarySearch').value.toLowerCase();
+  const fType = document.getElementById('fType').value;
+  const key   = groupMode === 'master' ? 'master' : 'dealer';
+
+  const filtered = S.matched.filter(m => {
+    if(fType && m.lum.type !== fType) return false;
+    const label = m.lum[key] || '';
+    if(q && !label.toLowerCase().includes(q) && !m.lum.dealer.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const grouped = groupByKey(filtered, key);
+  const entries = [...grouped.entries()]
+    .map(([name, arr]) => ({
+      name, rows: arr,
+      reuma: arr.filter(r => r.lum.type === 'ΡΕΥΜΑ').length,
+      aerio: arr.filter(r => r.lum.type === 'ΑΕΡΙΟ').length,
+    }))
+    .sort((a, b) => b.rows.length - a.rows.length);
+
+  const maxCnt = entries[0]?.rows.length || 1;
+  const wrap   = document.getElementById('dealerCardsWrap');
+  const empty  = document.getElementById('summaryEmpty');
+  const label  = groupMode === 'master' ? 'master dealers' : 'συνεργάτες';
+
+  document.getElementById('summaryCount').textContent =
+    `${entries.length} ${label}, ${filtered.length} παροχές`;
+
+  if(entries.length === 0){
+    wrap.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  wrap.innerHTML = `<div class="dealer-cards">${entries.map(e => `
+    <div class="dc" onclick="jumpTo('${key}','${e.name.replace(/'/g,"\\'")}')" title="Κλικ → Αναλυτικά">
+      <div class="dc-name">
+        ${groupMode === 'master' ? '<span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">MASTER&nbsp;</span>' : ''}
+        ${e.name}
+      </div>
+      <div class="dc-stats">
+        <div class="dc-stat">
+          <div class="sv" style="color:var(--accent)">${e.rows.length}</div>
+          <div class="sl">Παροχές</div>
+        </div>
+        <div class="dc-stat">
+          <div class="sv" style="color:var(--accent)">${e.reuma}</div>
+          <div class="sl">Ρεύμα</div>
+        </div>
+        <div class="dc-stat">
+          <div class="sv" style="color:var(--purple)">${e.aerio}</div>
+          <div class="sl">Αέριο</div>
+        </div>
+      </div>
+      <div class="dc-bar"><div class="dc-bar-fill" style="width:${(e.rows.length/maxCnt*100).toFixed(1)}%"></div></div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function jumpTo(key, val){
+  if(key === 'master') document.getElementById('fMaster').value = val;
+  else document.getElementById('fDealer').value = val;
+  renderDetail();
+  switchTabByName('detail');
+}
+
+// ─── DETAIL TAB ──────────────────────────────────────────────
+let dFiltered = [];
+
+function getDetailFiltered(){
+  const q      = document.getElementById('detailSearch').value.toLowerCase();
+  const master = document.getElementById('fMaster').value;
+  const dealer = document.getElementById('fDealer').value;
+  const type   = document.getElementById('fTypeD').value;
+  const month  = document.getElementById('fMonth').value;
+
+  return S.matched.filter(m => {
+    if(master && m.lum.master !== master) return false;
+    if(dealer && m.lum.dealer !== dealer) return false;
+    if(type   && m.lum.type   !== type)   return false;
+    if(month  && m.lum.month  !== month)  return false;
+    if(q && !(
+      (m.lum.master||'').toLowerCase().includes(q) ||
+      m.lum.dealer.toLowerCase().includes(q) ||
+      m.lum.supply.includes(q) ||
+      m.lum.name.toLowerCase().includes(q) ||
+      m.lum.afm.includes(q)
+    )) return false;
+    return true;
+  });
+}
+
+function sortD(key){
+  if(S.dSortKey === key) S.dSortDir *= -1;
+  else { S.dSortKey = key; S.dSortDir = 1; }
+  renderDetail();
+}
+
+function renderDetail(){
+  dFiltered = getDetailFiltered();
+
+  // Sort
+  dFiltered.sort((a, b) => {
+    const k = S.dSortKey;
+    let av = a.lum[k] ?? '', bv = b.lum[k] ?? '';
+    if(k === 'supply'){ av = parseInt(av)||0; bv = parseInt(bv)||0; }
+    if(av < bv) return -S.dSortDir;
+    if(av > bv) return  S.dSortDir;
+    return 0;
+  });
+
+  const total  = dFiltered.length;
+  const pages  = Math.ceil(total / S.pageSize) || 1;
+  S.page = Math.min(S.page, pages - 1);
+  const slice  = dFiltered.slice(S.page * S.pageSize, (S.page + 1) * S.pageSize);
+
+  const tbody = document.getElementById('detailTbody');
+  const empty = document.getElementById('detailEmpty');
+  const pager = document.getElementById('detailPager');
+
+  document.getElementById('detailCount').textContent = `${total} εγγραφές`;
+
+  if(total === 0){
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    pager.style.display = 'none';
+    return;
+  }
+  empty.style.display = 'none';
+  pager.style.display = 'flex';
+  document.getElementById('pagerInfo').textContent = `Σελίδα ${S.page+1} / ${pages}`;
+  document.getElementById('btnPrev').disabled = S.page === 0;
+  document.getElementById('btnNext').disabled = S.page >= pages - 1;
+
+  // Update sort indicators
+  document.querySelectorAll('.tbl-wrap thead th').forEach(th => {
+    th.classList.remove('sa','sd');
+    const k = th.getAttribute('onclick')?.match(/'(\w+)'/)?.[1];
+    if(k === S.dSortKey) th.classList.add(S.dSortDir === 1 ? 'sa' : 'sd');
+  });
+
+  tbody.innerHTML = slice.map(m => {
+    const l = m.lum;
+    const sc = l.status === 'CLOSED' ? 'bdg-green'
+             : l.status.includes('ΑΚΥΡ') ? 'bdg-red' : 'bdg-yellow';
+    return `<tr>
+      <td><span class="bdg bdg-yellow" style="font-size:11px">${l.master||'–'}</span></td>
+      <td><strong>${l.dealer}</strong></td>
+      <td><code style="color:var(--accent);font-size:12px">${l.supply}</code></td>
+      <td><span class="bdg ${l.type==='ΡΕΥΜΑ'?'bdg-blue':'bdg-purple'}">${l.type}</span></td>
+      <td>${l.name}</td>
+      <td style="color:var(--muted);font-size:12px">${l.afm}</td>
+      <td style="font-size:12px">${l.appType}</td>
+      <td style="color:var(--muted);font-size:12px">${l.program}</td>
+      <td><span class="bdg ${sc}">${l.status}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${l.month}</td>
+    </tr>`;
+  }).join('');
+}
+
+function changePage(dir){
+  S.page += dir;
+  renderDetail();
+}
+
+function resetDetailFilters(){
+  document.getElementById('detailSearch').value = '';
+  document.getElementById('fMaster').value = '';
+  document.getElementById('fDealer').value = '';
+  document.getElementById('fTypeD').value = '';
+  document.getElementById('fMonth').value = '';
+  renderDetail();
+}
+
+// ─── UNMATCHED TAB ───────────────────────────────────────────
+function renderUnmatched(){
+  const info  = document.getElementById('unmInfo');
+  const wrap  = document.getElementById('unmWrap');
+  const empty = document.getElementById('unmEmpty');
+  const hdr   = document.getElementById('unmHdr');
+  const body  = document.getElementById('unmBody');
+
+  if(S.unmatched.length === 0){
+    info.textContent = '';
+    wrap.style.display = 'none';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  wrap.style.display  = '';
+  info.textContent = `${S.unmatched.length} εγγραφές ΔΕΗ δεν αντιστοιχίστηκαν σε παροχή του αρχείου LUMINARITY.`;
+
+  const cols = Math.min(S.dehHeaders.length, 15);
+  hdr.innerHTML = S.dehHeaders.slice(0, cols).map(h => `<th>${h}</th>`).join('');
+  body.innerHTML = S.unmatched.slice(0, 300).map(r =>
+    `<tr>${Array.from({length:cols},(_,i) => `<td style="font-size:12px">${r[i]??''}</td>`).join('')}</tr>`
+  ).join('');
+}
+
+// ─── GROUP MODE (summary tab) ─────────────────────────────────
+let groupMode = 'dealer'; // 'dealer' | 'master'
+
+function setGroupMode(mode){
+  groupMode = mode;
+  document.getElementById('toggleDealer').classList.toggle('active', mode === 'dealer');
+  document.getElementById('toggleMaster').classList.toggle('active', mode === 'master');
+  renderSummary();
+}
+
+function groupByKey(rows, key){
+  const m = new Map();
+  for(const r of rows){
+    const k = r.lum[key] || '(χωρίς)';
+    if(!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  }
+  return m;
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────
+function buildLumRows(matchList){
+  return matchList.map(m => ({
+    'MASTER DEALER':     m.lum.master,
+    'HM/MM/EE':          m.lum.date,
+    'ΟΝΟΜΑΤΕΠΩΝΥΜΟ':     m.lum.name,
+    'ΑΦΜ':               m.lum.afm,
+    'ΤΥΠΟΣ ΠΑΡΟΧΗΣ':     m.lum.type,
+    'ΑΡ ΠΑΡΟΧΗΣ':        m.lum.supply,
+    'DEALER':            m.lum.dealer,
+    'ΤΥΠΟΣ ΑΙΤΗΣΗΣ':    m.lum.appType,
+    'STATUS':            m.lum.status,
+    'ΠΡΟΓΡΑΜΜΑ':         m.lum.program,
+    'ΜΗΝΑΣ':             m.lum.month,
+  }));
+}
+
+function sheetName(s){ return String(s).replace(/[\\\/\?\*\[\]:]/g,'_').substring(0,31); }
+
+function makeSummarySheet(grouped, labelKey){
+  const rows = [...grouped.entries()]
+    .map(([name, arr]) => ({
+      [labelKey]: name,
+      'ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ': arr.length,
+      'ΡΕΥΜΑ': arr.filter(r => r.lum.type === 'ΡΕΥΜΑ').length,
+      'ΦΥΣΙΚΟ ΑΕΡΙΟ': arr.filter(r => r.lum.type === 'ΑΕΡΙΟ').length,
+    }))
+    .sort((a, b) => b['ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ'] - a['ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ']);
+  return XLSX.utils.json_to_sheet(rows);
+}
+
+function doExport(){
+  if(!S.matched.length){ alert('Εκτελέστε πρώτα την ανάλυση.'); return; }
+  const mode = document.getElementById('exportMode').value;
+  const wb   = XLSX.utils.book_new();
+  const dt   = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
+  let filename;
+
+  if(mode === 'all_dealer'){
+    // ΣΥΝΟΨΗ + ένα φύλλο ανά συνεργάτη
+    const grouped = groupByKey(S.matched, 'dealer');
+    XLSX.utils.book_append_sheet(wb, makeSummarySheet(grouped,'ΣΥΝΕΡΓΑΤΗΣ'), 'ΣΥΝΟΨΗ');
+    for(const [name, arr] of grouped)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
+    filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_ΣΥΝΕΡΓ_${dt}.xlsx`;
+
+  } else if(mode === 'all_master'){
+    // ΣΥΝΟΨΗ + ένα φύλλο ανά master
+    const grouped = groupByKey(S.matched, 'master');
+    XLSX.utils.book_append_sheet(wb, makeSummarySheet(grouped,'MASTER DEALER'), 'ΣΥΝΟΨΗ');
+    for(const [name, arr] of grouped)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
+    filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_MASTER_${dt}.xlsx`;
+
+  } else if(mode.startsWith('master:')){
+    // Συγκεκριμένος master: φύλλο ΣΥΝΟΛΟ + ένα φύλλο ανά dealer
+    const masterName = mode.slice(7);
+    const masterRows = S.matched.filter(m => m.lum.master === masterName);
+    if(!masterRows.length){ alert(`Δεν βρέθηκαν εγγραφές για master: ${masterName}`); return; }
+    // Φύλλο συνόλου
+    XLSX.utils.book_append_sheet(wb,
+      XLSX.utils.json_to_sheet(buildLumRows(masterRows)),
+      sheetName(masterName + ' ΣΥΝΟΛΟ'));
+    // Ένα φύλλο ανά dealer
+    const byDealer = groupByKey(masterRows, 'dealer');
+    for(const [d, arr] of byDealer)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(d));
+    filename = `ΑΜΟΙΒΕΣ_${masterName}_${dt}.xlsx`;
+  }
+
+  XLSX.writeFile(wb, filename);
+}
+
+function exportFiltered(){
+  const filtered = getDetailFiltered();
+  if(!filtered.length){ alert('Δεν υπάρχουν εγγραφές για εξαγωγή.'); return; }
+  const wb  = XLSX.utils.book_new();
+  const dt  = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
+  const master = document.getElementById('fMaster').value;
+  const dealer = document.getElementById('fDealer').value;
+
+  if(dealer){
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(filtered)), sheetName(dealer));
+  } else if(master){
+    // Φύλλο συνόλου + ανά dealer
+    XLSX.utils.book_append_sheet(wb,
+      XLSX.utils.json_to_sheet(buildLumRows(filtered)),
+      sheetName(master + ' ΣΥΝΟΛΟ'));
+    const byDealer = groupByKey(filtered, 'dealer');
+    for(const [d, arr] of byDealer)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(d));
+  } else {
+    const key = groupMode === 'master' ? 'master' : 'dealer';
+    const grouped = groupByKey(filtered, key);
+    for(const [name, arr] of grouped)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
+  }
+  XLSX.writeFile(wb, `ΑΜΟΙΒΕΣ_ΦΙΛΤΡΟ_${dt}.xlsx`);
+}
+
+// ─── TABS ────────────────────────────────────────────────────
+function switchTab(el){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  const name = el.dataset.tab;
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'panel' + name.charAt(0).toUpperCase() + name.slice(1));
+  });
+}
+
+function switchTabByName(name){
+  const tab = document.querySelector(`.tab[data-tab="${name}"]`);
+  if(tab) switchTab(tab);
+}
+</script>
+</body>
+</html>
