@@ -103,7 +103,6 @@ body{background:radial-gradient(1200px 600px at 50% -10%,#1e3a5f 0%,var(--bg) 60
     <div class="brand">LUMINARITY Hub</div>
     <div class="sep"></div>
     <div class="user-pill">Ρόλος: <span class="role" id="userRole">—</span></div>
-    <button class="home-btn" id="popBtn" style="display:none" title="Άνοιγμα σε νέο παράθυρο">⧉ Νέο παράθυρο</button>
     <button class="home-btn" id="homeBtn" style="display:none">← Μενού</button>
     <button class="logout-btn" id="logoutBtn">Αποσύνδεση</button>
   </div>
@@ -160,7 +159,7 @@ const DASHBOARDS = {
     icon:  '📋',
     color: 'c5',
     // Από Έγγραφα/εχελακια/ → Επιφάνεια εργασίας/antigravity/...
-    src:   '../../Επιφάνεια εργασίας/antigravity/alex-aitiseis/outputs/dashboard_master_report.html'
+    src:   'master/dashboard_master_report.html'
   }
 };
 
@@ -224,7 +223,7 @@ function renderMenu(){
     const ok = allowed.has(id);
     const tile = document.createElement(ok ? 'button' : 'div');
     tile.className = 'tile' + (ok ? '' : ' locked');
-    const tag = !ok ? '🔒 Χωρίς πρόσβαση' : (d.newWindow ? '⧉ Νέο παράθυρο' : '▸ Άνοιγμα');
+    const tag = ok ? '▸ Άνοιγμα' : '🔒 Χωρίς πρόσβαση';
     tile.innerHTML = `
       <div class="tile-ico ${d.color}">${d.icon}</div>
       <div class="tile-title">${d.title}</div>
@@ -236,31 +235,22 @@ function renderMenu(){
   }
 }
 
-let currentSrc = null;
 function openDashboard(id){
   const d = DASHBOARDS[id];
   if (!d) return;
   // encodeURI για να χειριστεί ελληνικά γράμματα και κενά στο path
-  const url = encodeURI(d.src);
-  // Dashboards που χρειάζονται top-level browsing context (π.χ. ΕΦΑΡΜΟΓΗ —
-  // τα date pickers σε iframe + file:// μπλοκάρονται από browser security policies).
-  if (d.newWindow) { window.open(url, '_blank'); return; }
-  currentSrc = url;
-  $('frame').src = currentSrc;
+  $('frame').src = encodeURI(d.src);
   $('menu').style.display = 'none';
   $('frameWrap').style.display = 'block';
   $('homeBtn').style.display = 'inline-block';
-  $('popBtn').style.display = 'inline-block';
   document.title = `LUMINARITY · ${d.title}`;
 }
 
 function showMenu(){
   $('frame').src = 'about:blank';
-  currentSrc = null;
   $('frameWrap').style.display = 'none';
   $('menu').style.display = 'block';
   $('homeBtn').style.display = 'none';
-  $('popBtn').style.display = 'none';
   document.title = 'LUMINARITY · Hub';
 }
 
@@ -281,9 +271,6 @@ $('pwd').addEventListener('keydown', e => {
 });
 $('logoutBtn').addEventListener('click', logout);
 $('homeBtn').addEventListener('click', showMenu);
-$('popBtn').addEventListener('click', () => {
-  if (currentSrc) window.open(currentSrc, '_blank');
-});
 
 // Auto-login αν υπάρχει σωστός κωδικός στο sessionStorage
 (function init(){
