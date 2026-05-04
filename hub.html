@@ -169,13 +169,15 @@ const DASHBOARDS = {
 // Ρόλοι: ποιος βλέπει τι. Άλλαξε allowed ή πρόσθεσε νέους ρόλους.
 const ROLES = {
   admin:      { label:'Διαχειριστής', allowed:['central','kpi','efarmogi','master'] },
-  backoffice: { label:'Back Office',  allowed:['efarmogi','master'] }
+  backoffice: { label:'Back Office',  allowed:['efarmogi','master'] },
+  partner:    { label:'Συνεργάτης',   allowed:['efarmogi'] }
 };
 
 // Κωδικοί → ρόλος. Άλλαξε τους ΕΔΩ.
 const USERS = {
   'LUMI0000': { role:'admin',      name:'Admin' },
-  'BO1234':   { role:'backoffice', name:'Back Office' }
+  'BO1234':   { role:'backoffice', name:'Back Office' },
+  'partner':  { role:'partner',    name:'Συνεργάτης' }
 };
 
 /* ==============================================================
@@ -223,17 +225,16 @@ function renderMenu(){
   grid.innerHTML = '';
   const allowed = new Set(ROLES[currentUser.role].allowed);
   for (const [id, d] of Object.entries(DASHBOARDS)){
-    const ok = allowed.has(id);
-    const tile = document.createElement(ok ? 'button' : 'div');
-    tile.className = 'tile' + (ok ? '' : ' locked');
-    const tag = ok ? '▸ Άνοιγμα' : '🔒 Χωρίς πρόσβαση';
+    if (!allowed.has(id)) continue;  // κρύβουμε εντελώς τα tiles χωρίς πρόσβαση
+    const tile = document.createElement('button');
+    tile.className = 'tile';
     tile.innerHTML = `
       <div class="tile-ico ${d.color}">${d.icon}</div>
       <div class="tile-title">${d.title}</div>
       <div class="tile-desc">${d.desc}</div>
-      <div class="tile-tag">${tag}</div>
+      <div class="tile-tag">▸ Άνοιγμα</div>
     `;
-    if (ok) tile.addEventListener('click', () => openDashboard(id));
+    tile.addEventListener('click', () => openDashboard(id));
     grid.appendChild(tile);
   }
 }
