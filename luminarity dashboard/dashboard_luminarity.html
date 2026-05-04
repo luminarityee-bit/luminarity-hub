@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Αμοιβών ΔΕΗ – LUMINARITY</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 :root{
   --bg:#0f172a;--card:#1e293b;--border:#334155;
@@ -22,7 +23,7 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
 .main{max-width:1500px;margin:0 auto;padding:24px;}
 
 /* UPLOAD */
-.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px;}
 .upload-card{background:var(--card);border:2px dashed var(--border);border-radius:12px;padding:20px;transition:border-color .2s;}
 .upload-card:hover{border-color:var(--accent);}
 .upload-card h2{margin-bottom:6px;}
@@ -30,6 +31,8 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
 .upload-card input[type=file]{width:100%;padding:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;}
 .file-tag{display:inline-flex;align-items:center;gap:6px;background:#1e3a5f;border:1px solid var(--accent);border-radius:6px;padding:4px 12px;font-size:12px;margin-top:10px;}
 .file-tag .badge{background:var(--accent);color:#0f172a;border-radius:4px;padding:1px 7px;font-weight:700;font-size:11px;}
+.file-tag .rm{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;margin-left:2px;}
+.file-tag .rm:hover{color:var(--red);}
 
 /* COL PICKER */
 .col-picker{display:none;margin-top:14px;background:var(--bg);border:1px solid var(--yellow);border-radius:8px;padding:14px;}
@@ -53,11 +56,39 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
 .btn-outline:hover{border-color:var(--accent);color:var(--text);}
 
 /* LOG */
-#log{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);margin-bottom:20px;display:none;}
-#log.on{display:block;}
-#log .ok{color:var(--green);}
-#log .warn{color:var(--yellow);}
-#log .err{color:var(--red);}
+#log,#logCheck{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--muted);margin-bottom:20px;display:none;}
+#log.on,#logCheck.on{display:block;}
+#log .ok,#logCheck .ok{color:var(--green);}
+#log .warn,#logCheck .warn{color:var(--yellow);}
+#log .err,#logCheck .err{color:var(--red);}
+
+/* MODE SELECTOR */
+.mode-tabs{display:flex;gap:6px;margin-bottom:24px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:6px;}
+.mode-tab{flex:1;padding:14px 18px;text-align:center;cursor:pointer;border-radius:8px;color:var(--muted);font-weight:600;font-size:14px;transition:all .15s;user-select:none;}
+.mode-tab.active{background:var(--accent);color:#0f172a;}
+.mode-tab:not(.active):hover{color:var(--text);background:rgba(56,189,248,.08);}
+.mode-view{display:none;}
+.mode-view.active{display:block;}
+.file-tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+
+/* COLLAPSIBLE SECTIONS (native <details>) */
+details.section{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:18px;overflow:hidden;}
+details.section > summary{cursor:pointer;padding:14px 20px;font-size:1.05rem;font-weight:600;color:var(--accent);user-select:none;list-style:none;display:flex;align-items:center;gap:12px;transition:background .15s;}
+details.section > summary:hover{background:rgba(56,189,248,.06);}
+details.section > summary::-webkit-details-marker{display:none;}
+details.section > summary::before{content:'▶';display:inline-block;color:var(--muted);font-size:.8em;transition:transform .15s;width:14px;}
+details.section[open] > summary::before{transform:rotate(90deg);color:var(--accent);}
+details.section > summary .sub{margin-left:auto;color:var(--muted);font-size:12px;font-weight:400;}
+details.section > .section-body{padding:18px 20px 20px;border-top:1px solid var(--border);}
+
+/* MONTH CHIPS (multi-select) */
+.month-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;}
+.mc-label{color:var(--muted);font-size:12px;margin-right:6px;font-weight:600;}
+.month-chip{padding:5px 12px;border-radius:14px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;transition:all .15s;user-select:none;font-weight:500;}
+.month-chip.on{background:var(--accent);color:#0f172a;border-color:var(--accent);font-weight:700;}
+.month-chip:not(.on):hover{border-color:var(--accent);color:var(--text);}
+.mc-mini{padding:3px 9px;font-size:11px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;}
+.mc-mini:hover{border-color:var(--accent);color:var(--text);}
 
 /* KPI */
 .kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;}
@@ -135,7 +166,8 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
 .toggle-btn.active{background:var(--accent);color:#0f172a;}
 .toggle-btn:not(.active):hover{color:var(--text);}
 
-@media(max-width:900px){.upload-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:1100px){.upload-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:900px){.upload-grid{grid-template-columns:1fr;}.kpi-grid{grid-template-columns:repeat(3,1fr)!important;}}
 @media(max-width:600px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
@@ -151,14 +183,23 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
 
 <div class="main">
 
+  <!-- MODE SELECTOR -->
+  <div class="mode-tabs">
+    <div class="mode-tab active" data-mode="amoives" onclick="switchMode('amoives')">💶 Αμοιβές</div>
+    <div class="mode-tab" data-mode="elegxos" onclick="switchMode('elegxos')">🔍 Έλεγχος Απλήρωτων Αιτήσεων</div>
+  </div>
+
+  <!-- ═══ MODE: ΑΜΟΙΒΕΣ ═══════════════════════════════════════ -->
+  <div class="mode-view active" id="modeAmoives">
+
   <!-- UPLOAD -->
   <div class="upload-grid">
 
     <div class="upload-card">
-      <h2>📂 ΑΡΧΕΙΟ LUMINARITY 2026</h2>
-      <p>Το αρχείο με τα φύλλα ανά μήνα (ΙΑΝΟΥΑΡΙΟΣ, ΦΕΒΡΟΥΑΡΙΟΣ, ΜΑΡΤΙΟΣ…).<br>Διαβάζονται αυτόματα όλα τα φύλλα δεδομένων.</p>
-      <input type="file" id="fileLum" accept=".xlsx,.xls,.xlsm" onchange="loadLum(this)">
-      <div id="tagLum"></div>
+      <h2>📂 ΑΡΧΕΙΑ LUMINARITY <span style="color:var(--muted);font-size:11px;font-weight:400">(προαιρετικό · πολλαπλά: 2025 + 2026)</span></h2>
+      <p>Χρειάζεται μόνο αν θέλεις να αντιστοιχίσει Master / Συνεργάτη / Όνομα στις παροχές. Για απλό έλεγχο πληρωμών είναι προαιρετικό.<br>Για κάθε παροχή κρατείται μία γραμμή — η πιο πρόσφατη ημερομηνία.</p>
+      <input type="file" id="filesLum" accept=".xlsx,.xls,.xlsm" multiple onchange="loadLumFiles(this)">
+      <div id="tagsLum" class="file-tag-list"></div>
     </div>
 
     <div class="upload-card">
@@ -182,13 +223,20 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
       </div>
     </div>
 
+    <div class="upload-card" style="border-color:#7f1d1d;">
+      <h2 style="color:#fca5a5;">🔴 Αρχείο Claw Back</h2>
+      <p>Το αρχείο Claw Back της ΔΕΗ. Αναγνωρίζεται αυτόματα ο συνεργάτης.<br>Θα εμφανίζεται με <strong style="color:#ef4444">κόκκινα γράμματα</strong> σε όλα τα export.</p>
+      <input type="file" id="fileClaw" accept=".xlsx,.xls,.xlsm,.csv" onchange="loadClaw(this)">
+      <div id="tagClaw"></div>
+    </div>
+
   </div>
 
   <button class="btn-run" id="btnRun" onclick="analyze()" disabled>⚡ Εκτέλεση Αντιστοίχισης</button>
   <div id="log"></div>
 
   <!-- KPIs -->
-  <div class="kpi-grid" id="kpiGrid" style="display:none">
+  <div class="kpi-grid" id="kpiGrid" style="display:none;grid-template-columns:repeat(6,1fr)">
     <div class="kpi kv-accent">
       <div class="lbl">Εγγραφές ΔΕΗ</div>
       <div class="val" id="kDeh">–</div>
@@ -200,7 +248,7 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
       <div class="sub" id="kMatchSub"></div>
     </div>
     <div class="kpi kv-yellow">
-      <div class="lbl">Δεν Βρέθηκαν</div>
+      <div class="lbl">Αναντίστοιχες</div>
       <div class="val" id="kUnm">–</div>
       <div class="sub" id="kUnmSub"></div>
     </div>
@@ -208,6 +256,11 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
       <div class="lbl">Συνεργάτες</div>
       <div class="val" id="kDealers">–</div>
       <div class="sub" id="kDealersSub"></div>
+    </div>
+    <div class="kpi" style="border-color:#7f1d1d;background:#1c0a0a">
+      <div class="lbl" style="color:#fca5a5">Claw Back</div>
+      <div class="val" id="kClaw" style="color:#ef4444">–</div>
+      <div class="sub" id="kClawSub"></div>
     </div>
     <div class="kpi kv-orange">
       <div class="lbl">Κορυφαίος</div>
@@ -238,9 +291,10 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
         <button id="toggleMaster" class="toggle-btn" onclick="setGroupMode('master')">🏢 Ανά Master Dealer</button>
       </div>
       <div class="sep"></div>
-      <select class="filter-select" id="exportMode" style="min-width:260px">
-        <option value="all_dealer">Εξαγωγή: Όλοι ανά Συνεργάτη</option>
-        <option value="all_master">Εξαγωγή: Όλοι ανά Master Dealer</option>
+      <select class="filter-select" id="exportMode" style="min-width:280px">
+        <option value="full_detail">📋 Πλήρης Εξαγωγή Αναλυτικών</option>
+        <option value="all_dealer">👤 Εξαγωγή: Όλοι ανά Συνεργάτη</option>
+        <option value="all_master">🏢 Εξαγωγή: Όλοι ανά Master Dealer</option>
       </select>
       <button class="btn btn-green" onclick="doExport()">⬇ Εξαγωγή</button>
       <span class="result-count" id="summaryCount"></span>
@@ -310,18 +364,213 @@ h2{font-size:.95rem;font-weight:600;color:var(--accent);}
     </div>
   </div>
 
+  </div><!-- /modeAmoives -->
+
+  <!-- ═══ MODE: ΕΛΕΓΧΟΣ ΑΠΛΗΡΩΤΩΝ ═════════════════════════════ -->
+  <div class="mode-view" id="modeElegxos">
+
+    <details class="section" id="mainCheckSection" open>
+    <summary>🔍 Κύριος Έλεγχος Απλήρωτων <span class="sub">Daily Report + Αμοιβές + Clawback</span></summary>
+    <div class="section-body">
+
+    <div class="upload-grid" style="grid-template-columns:1fr 1fr 1fr">
+
+      <div class="upload-card">
+        <h2>📋 Daily Reports <span style="color:var(--muted);font-size:11px;font-weight:400">(πολλαπλά)</span></h2>
+        <p>Φόρτωσε ένα ή περισσότερα Daily Reports (π.χ. ολικό 2025 + 2026).<br>Από αυτά αντλούνται όλα τα status — ανά παροχή κρατείται η πιο πρόσφατη ημερομηνία.</p>
+        <input type="file" id="filesDaily" accept=".xlsx,.xls,.xlsm,.csv" multiple onchange="loadDailyFiles(this)">
+        <div id="tagsDaily" class="file-tag-list"></div>
+      </div>
+
+      <div class="upload-card">
+        <h2>💶 Αρχεία Αμοιβών ΔΕΗ <span style="color:var(--muted);font-size:11px;font-weight:400">(πολλαπλά)</span></h2>
+        <p>Φόρτωσε ένα ή περισσότερα αρχεία αμοιβών (π.χ. ένα ανά μήνα).<br>Συγκεντρώνονται όλοι οι αρ. παροχής που έχουν πληρωθεί.</p>
+        <input type="file" id="filesAmoivesCheck" accept=".xlsx,.xls,.xlsm,.csv" multiple onchange="loadAmoivesFiles(this)">
+        <div id="tagsAmoivesCheck" class="file-tag-list"></div>
+      </div>
+
+      <div class="upload-card" style="border-color:#7f1d1d">
+        <h2 style="color:#fca5a5">🔄 Αρχεία Claw Back <span style="color:var(--muted);font-size:11px;font-weight:400">(πολλαπλά, προαιρετικό)</span></h2>
+        <p>Φόρτωσε ένα ή περισσότερα αρχεία clawback.<br>Όσες "απλήρωτες" εμφανίζονται εδώ θεωρούνται <strong style="color:#fca5a5">επιστροφές αμοιβών</strong>, όχι πραγματικά απλήρωτες.</p>
+        <input type="file" id="filesClawCheck" accept=".xlsx,.xls,.xlsm,.csv" multiple onchange="loadClawbackFiles(this)">
+        <div id="tagsClawCheck" class="file-tag-list"></div>
+      </div>
+
+    </div>
+
+    <button class="btn-run" id="btnRunCheck" onclick="runCheck()" disabled>⚡ Εκτέλεση Ελέγχου Απλήρωτων</button>
+    <div id="logCheck"></div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" id="kpiCheckGrid" style="display:none;grid-template-columns:repeat(5,1fr)">
+      <div class="kpi kv-accent">
+        <div class="lbl">Σύνολο CLOSED</div>
+        <div class="val" id="kClosed">–</div>
+        <div class="sub" id="kClosedSub"></div>
+      </div>
+      <div class="kpi kv-green">
+        <div class="lbl">Πληρωμένες</div>
+        <div class="val" id="kPaid">–</div>
+        <div class="sub" id="kPaidSub"></div>
+      </div>
+      <div class="kpi" style="border-color:#7f1d1d;background:#1c0a0a">
+        <div class="lbl" style="color:#fca5a5">Απλήρωτες</div>
+        <div class="val" id="kUnpaid" style="color:#ef4444">–</div>
+        <div class="sub" id="kUnpaidSub"></div>
+      </div>
+      <div class="kpi kv-orange">
+        <div class="lbl">🔄 Clawback</div>
+        <div class="val" id="kClawCheck">–</div>
+        <div class="sub" id="kClawCheckSub"></div>
+      </div>
+      <div class="kpi kv-purple">
+        <div class="lbl">Αρχεία</div>
+        <div class="val" id="kAmFiles">–</div>
+        <div class="sub" id="kAmFilesSub"></div>
+      </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar" id="checkToolbar" style="display:none">
+      <input class="search-input" id="checkSearch" placeholder="Παροχή, Όνομα, Συνεργάτης…" oninput="renderUnpaid()">
+      <select class="filter-select" id="fCheckType" onchange="renderUnpaid()">
+        <option value="">Όλοι Τύποι</option>
+        <option value="ΡΕΥΜΑ">ΡΕΥΜΑ</option>
+        <option value="ΑΕΡΙΟ">ΑΕΡΙΟ</option>
+      </select>
+      <select class="filter-select" id="fCheckMaster" onchange="onMasterFilterChange()"><option value="">🏢 Όλοι Master Dealers</option></select>
+      <select class="filter-select" id="fCheckDealer" onchange="renderUnpaid()"><option value="">👤 Όλοι Συνεργάτες</option></select>
+      <select class="filter-select" id="fCheckSource" onchange="renderUnpaid()">
+        <option value="">Όλες οι πηγές</option>
+        <option value="DAILY">📋 Daily Report</option>
+        <option value="LUMIN">📂 LUMINARITY</option>
+        <option value="BOTH">🔗 Σε ΑΜΦΟΤΕΡΑ</option>
+      </select>
+      <select class="filter-select" id="fCheckStatusVal" onchange="renderUnpaid()"><option value="">Όλα τα Status</option></select>
+      <select class="filter-select" id="fCheckPayment" onchange="renderUnpaid()">
+        <option value="unpaid">⚠️ Μόνο Απλήρωτες</option>
+        <option value="all">Όλες οι αιτήσεις</option>
+        <option value="paid">✓ Μόνο Πληρωμένες</option>
+        <option value="clawback">🔄 Μόνο Clawback</option>
+        <option value="not_clawback">Εκτός Clawback</option>
+      </select>
+      <button class="btn btn-outline" onclick="resetCheckFilters()">✕ Καθαρισμός</button>
+      <button class="btn btn-green" onclick="exportUnpaid()">⬇ Εξαγωγή σε Excel</button>
+      <span class="result-count" id="checkCount"></span>
+    </div>
+
+    <!-- MONTH CHIPS (multi-select) -->
+    <div class="month-chips" id="monthChipsWrap" style="display:none">
+      <span class="mc-label">📅 Μήνες (κλικ για εξαίρεση):</span>
+      <div id="monthChips" style="display:flex;flex-wrap:wrap;gap:6px;flex:1"></div>
+      <button class="mc-mini" onclick="setAllMonths(true)">Όλοι</button>
+      <button class="mc-mini" onclick="setAllMonths(false)">Κανείς</button>
+    </div>
+
+    <div class="tbl-wrap" id="checkWrap" style="display:none">
+      <table>
+        <thead><tr>
+          <th>Master</th>
+          <th>Συνεργάτης</th>
+          <th>Αρ. Παροχής</th>
+          <th>Τύπος</th>
+          <th>Ονοματεπώνυμο</th>
+          <th>ΑΦΜ</th>
+          <th>Τύπος Αίτησης</th>
+          <th>Πρόγραμμα</th>
+          <th>Status</th>
+          <th>Πηγή</th>
+          <th>Μήνας</th>
+          <th>Πληρώθηκε;</th>
+        </tr></thead>
+        <tbody id="checkBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="checkEmpty" style="display:none">
+      <div class="icon">🔍</div><div>Δεν βρέθηκαν εγγραφές με τα τρέχοντα φίλτρα.</div>
+    </div>
+
+    </div><!-- /section-body -->
+    </details><!-- /mainCheckSection -->
+
+    <!-- ════ AD-HOC ΕΞΤΡΑ ΕΛΕΓΧΟΙ ════ -->
+    <details class="section" id="adhocSection">
+    <summary>🔎 Επιπλέον Έλεγχοι Λιστών <span class="sub">Λίστα παροχών × Αμοιβές × Sent</span></summary>
+    <div class="section-body">
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
+        Φόρτωσε αυθαίρετες λίστες παροχών και διασταύρωσέ τις με τα αρχεία αμοιβών σου ή με αρχεία που έχεις στείλει στους συνεργάτες σου.
+        Αν δεν εντοπιστεί αυτόματα η στήλη παροχής, θα εμφανιστεί επιλογή για χειροκίνητη πρόσδεση.
+        <strong style="color:var(--accent)">Δουλεύει standalone</strong> — αρκούν τα αρχεία αμοιβών &amp; η λίστα. Δεν χρειάζεται να φορτώσεις LUMINARITY ή Daily Report ούτε να εκτελέσεις τον κύριο έλεγχο. (Αν τα έχεις φορτωμένα, εμφανίζονται επιπλέον στοιχεία Master/Συνεργάτη/Όνομα.)
+      </p>
+
+      <div class="upload-grid" style="grid-template-columns:1fr 1fr">
+        <div class="upload-card">
+          <h2>📋 Λίστα προς έλεγχο πληρωμών <span style="color:var(--muted);font-size:11px;font-weight:400">(πολλαπλά)</span></h2>
+          <p>Φόρτωσε λίστες παροχών (π.χ. "ΑΠΛΗΡΩΤΕΣ ΜΕΧΡΙ X"). Διασταύρωση με τα αρχεία αμοιβών σου για να δεις ποιες είναι όντως πληρωμένες.</p>
+          <input type="file" id="filesAdhoc" accept=".xlsx,.xls,.xlsm,.csv" multiple onchange="loadAdhocFiles(this, 'adhoc')">
+          <div id="tagsAdhoc" class="file-tag-list"></div>
+          <div id="pickerAdhoc"></div>
+        </div>
+
+        <div class="upload-card">
+          <h2>📨 Αρχεία προς συνεργάτες <span style="color:var(--muted);font-size:11px;font-weight:400">(πολλαπλά)</span></h2>
+          <p>Φόρτωσε αρχεία που έχεις στείλει σε συνεργάτες με παροχές για πληρωμή. Έλεγχος ότι όντως τους έχεις στείλει αυτές που λένε ότι είναι απλήρωτες.</p>
+          <input type="file" id="filesSent" accept=".xlsx,.xls,.xlsm,.csv" multiple onchange="loadAdhocFiles(this, 'sent')">
+          <div id="tagsSent" class="file-tag-list"></div>
+          <div id="pickerSent"></div>
+        </div>
+      </div>
+
+      <div id="adhocResults" style="display:none;margin-top:20px">
+        <div class="toolbar">
+          <input class="search-input" id="adhocSearch" placeholder="Παροχή, Συνεργάτης, Όνομα…" oninput="renderAdhocResults()">
+          <select class="filter-select" id="fAdhocPay" onchange="renderAdhocResults()">
+            <option value="">Όλες οι καταστάσεις</option>
+            <option value="paid">✓ Πληρωμένες</option>
+            <option value="unpaid">✗ Μη πληρωμένες</option>
+            <option value="clawback">🔄 Clawback</option>
+          </select>
+          <select class="filter-select" id="fAdhocSent" onchange="renderAdhocResults()">
+            <option value="">Όλες (στάλθηκε ή όχι)</option>
+            <option value="yes">📨 Στάλθηκαν</option>
+            <option value="no">⚠️ Δεν στάλθηκαν</option>
+          </select>
+          <span class="result-count" id="adhocCount"></span>
+          <button class="btn btn-green" onclick="exportAdhocResults()" style="margin-left:auto">⬇ Εξαγωγή σε Excel</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr id="adhocHead"></tr></thead>
+            <tbody id="adhocBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /section-body -->
+    </details><!-- /adhocSection -->
+
+  </div><!-- /modeElegxos -->
+
 </div>
 
 <script>
 // ─── STATE ───────────────────────────────────────────────────
 const S = {
-  lumRows: [],   // parsed from LUMINARITY
+  lumRows: [],
+  lumFiles: [],   // [{name, rows, masterByName, masterByCode, dealerByCode}]
   dehHeaders: [],
   dehRows: [],
   elCol: -1,
   gasCol: -1,
-  matched: [],  // {lum, dehRow}
-  unmatched: [], // DEH rows with no match
+  matched: [],
+  unmatched: [],
+  clawRawRows: [],
+  clawMatched: [],
+  clawUnmatched: [],
+  reumaMap: new Map(),
+  aerioMap: new Map(),
+  masterByCode: new Map(),
+  masterByName: new Map(),
+  dealerByCode: new Map(),
   page: 0,
   pageSize: 60,
   dSortKey: 'dealer',
@@ -330,6 +579,104 @@ const S = {
 
 // ─── HELPERS ─────────────────────────────────────────────────
 function norm(v){ return String(v ?? '').trim().replace(/\.0+$/, ''); }
+
+// Parse a date value (Date object, Excel serial number, or string) into
+// {day, month, year}. Handles Greek "DD/M/YYYY[, hh:mm μ.μ.]" and ISO formats.
+function parseDate(v){
+  if(v == null || v === '') return null;
+  if(v instanceof Date){
+    if(isNaN(v.getTime())) return null;
+    return {day: v.getDate(), month: v.getMonth() + 1, year: v.getFullYear()};
+  }
+  if(typeof v === 'number'){
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if(!isNaN(d.getTime()))
+      return {day: d.getUTCDate(), month: d.getUTCMonth() + 1, year: d.getUTCFullYear()};
+    return null;
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(m){ let y = +m[3]; if(y < 100) y += 2000; return {day: +m[1], month: +m[2], year: y}; }
+  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})/);
+  if(m){ let y = +m[3]; if(y < 100) y += 2000; return {day: +m[1], month: +m[2], year: y}; }
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return {day: +m[3], month: +m[2], year: +m[1]};
+  return null;
+}
+
+const MONTH_NAMES_GR = ['ΙΑΝΟΥΑΡΙΟΣ','ΦΕΒΡΟΥΑΡΙΟΣ','ΜΑΡΤΙΟΣ','ΑΠΡΙΛΙΟΣ','ΜΑΪΟΣ','ΙΟΥΝΙΟΣ',
+                        'ΙΟΥΛΙΟΣ','ΑΥΓΟΥΣΤΟΣ','ΣΕΠΤΕΜΒΡΙΟΣ','ΟΚΤΩΒΡΙΟΣ','ΝΟΕΜΒΡΙΟΣ','ΔΕΚΕΜΒΡΙΟΣ'];
+
+function monthLabel(parsed){
+  if(!parsed) return '';
+  return MONTH_NAMES_GR[parsed.month - 1] + ' ' + parsed.year;
+}
+
+// Sort month labels chronologically ("ΜΑΡΤΙΟΣ 2026" → year=2026, month=3)
+function parseMonthLabel(label){
+  if(!label) return null;
+  const parts = String(label).trim().split(/\s+/);
+  if(parts.length < 2) return null;
+  const idx = MONTH_NAMES_GR.indexOf(parts[0]);
+  const yr = parseInt(parts[1]);
+  if(idx < 0 || isNaN(yr)) return null;
+  return {month: idx + 1, year: yr};
+}
+
+function compareMonthLabels(a, b){
+  const pa = parseMonthLabel(a), pb = parseMonthLabel(b);
+  if(pa && pb){
+    if(pa.year !== pb.year) return pa.year - pb.year;
+    return pa.month - pb.month;
+  }
+  return String(a).localeCompare(String(b));
+}
+
+// Genitive (Greek) month names → 1..12. Used to parse fee filenames like
+// "Aρχείο Απόδοσης Αμοιβών Μηνός Ιανουαρίου 2026_…".
+const GREEK_GEN_MONTHS = {
+  ΙΑΝΟΥΑΡΙΟΥ: 1, ΦΕΒΡΟΥΑΡΙΟΥ: 2, ΜΑΡΤΙΟΥ: 3, ΑΠΡΙΛΙΟΥ: 4,
+  'ΜΑΪΟΥ': 5, ΜΑΙΟΥ: 5, ΙΟΥΝΙΟΥ: 6, ΙΟΥΛΙΟΥ: 7, ΑΥΓΟΥΣΤΟΥ: 8,
+  ΣΕΠΤΕΜΒΡΙΟΥ: 9, ΟΚΤΩΒΡΙΟΥ: 10, ΝΟΕΜΒΡΙΟΥ: 11, ΔΕΚΕΜΒΡΙΟΥ: 12,
+};
+function parseFeeMonthFromFilename(filename){
+  if(!filename) return null;
+  const upper = String(filename).toUpperCase();
+  for(const [key, m] of Object.entries(GREEK_GEN_MONTHS)){
+    if(upper.includes(key)){
+      const yr = (filename.match(/\b(20\d{2})\b/) || [])[1];
+      if(yr) return monthLabel({month: m, year: parseInt(yr, 10)});
+    }
+  }
+  return null;
+}
+
+// English 3-letter month abbreviations. Used for clawback "Churn Month"
+// values like "Mar2026", "Feb 2026", "Jan-2026".
+const ENG_MONTHS = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+function parseChurnMonth(value){
+  if(value == null) return null;
+  const s = String(value).trim();
+  if(!s || s === '-') return null;
+  // "Mar2026" / "Mar 2026" / "Mar-2026"
+  const m = s.match(/^([A-Za-zΑ-Ωα-ω]{3,})\s*[-\s]?\s*(\d{4})$/);
+  if(m){
+    const abbr = m[1].slice(0, 3).toUpperCase();
+    const num = ENG_MONTHS[abbr];
+    if(num) return monthLabel({month: num, year: parseInt(m[2], 10)});
+    // Try Greek abbreviations (ΙΑΝ, ΦΕΒ, …) just in case
+    const gr = ['ΙΑΝ','ΦΕΒ','ΜΑΡ','ΑΠΡ','ΜΑΙ','ΙΟΥΝ','ΙΟΥΛ','ΑΥΓ','ΣΕΠ','ΟΚΤ','ΝΟΕ','ΔΕΚ'].indexOf(abbr);
+    if(gr >= 0) return monthLabel({month: gr + 1, year: parseInt(m[2], 10)});
+  }
+  // Fall back to the generic parser (handles dates / Excel serial / "ΜΑΡΤΙΟΣ 2026")
+  const p = parseDate(s);
+  if(p) return monthLabel(p);
+  const lblParts = s.split(/\s+/);
+  if(lblParts.length === 2 && MONTH_NAMES_GR.includes(lblParts[0].toUpperCase())){
+    return lblParts[0].toUpperCase() + ' ' + lblParts[1];
+  }
+  return null;
+}
 
 function addLog(msg, cls=''){
   const el = document.getElementById('log');
@@ -340,6 +687,30 @@ function addLog(msg, cls=''){
 function checkReady(){
   const ok = S.lumRows.length > 0 && S.dehRows.length > 0 && (S.elCol >= 0 || S.gasCol >= 0);
   document.getElementById('btnRun').disabled = !ok;
+}
+
+function clearFile(which){
+  if(which === 'lum'){
+    S.lumRows = []; S.lumFiles = [];
+    S.reumaMap = new Map(); S.aerioMap = new Map();
+    S.masterByCode = new Map(); S.masterByName = new Map();
+    S.dealerByCode = new Map();
+    const inp = document.getElementById('filesLum');
+    if(inp) inp.value = '';
+    const tags = document.getElementById('tagsLum');
+    if(tags) tags.innerHTML = '';
+  } else if(which === 'deh'){
+    S.dehRows = []; S.elCol = -1; S.gasCol = -1;
+    document.getElementById('fileDeh').value = '';
+    document.getElementById('tagDeh').innerHTML = '';
+    document.getElementById('autoDetectMsg').style.display = 'none';
+    document.getElementById('colPicker').style.display = 'none';
+  } else if(which === 'claw'){
+    S.clawRawRows = [];
+    document.getElementById('fileClaw').value = '';
+    document.getElementById('tagClaw').innerHTML = '';
+  }
+  checkReady();
 }
 
 const SKIP = new Set(['ΛΙΣΤΕΣ','DASH_DATA','LISTS','DASHBOARD','CHART']);
@@ -359,104 +730,304 @@ function findCol(headers, ...terms){
   return -1;
 }
 
-// ─── LOAD LUMINARITY ─────────────────────────────────────────
-function loadLum(inp){
+// Multilingual detection of electricity / gas supply columns.
+// Handles both English ("Electricity supply number") and Greek
+// ("ΡΕΥΜΑ Αριθμός Παροχής", "ΦΑ ΗΚΑΣΠ", "ΑΕΡΙΟ Αριθμός Παροχής") variants.
+function detectSupplyCols(hdr){
+  let elCol = -1, gasCol = -1;
+  for(let i = 0; i < hdr.length; i++){
+    const h = String(hdr[i] ?? '').trim().toLowerCase();
+    if(!h) continue;
+    if(elCol < 0 && (
+        h.includes('electricity supply') ||
+        h.includes('el supply') ||
+        h.includes('supply number el') ||
+        h.includes('supply el') ||
+        /ρε[ύυ]μα/.test(h) ||
+        h.includes('ηλεκτρ')
+      )) elCol = i;
+    if(gasCol < 0 && (
+        h.includes('gas supply') ||
+        h.includes('supply gas') ||
+        h.includes('supply number gas') ||
+        /α[έε]ριο/.test(h) ||
+        /(^|\s)φα(\s|$)/.test(h) ||
+        h.includes('φυσικ')
+      )) gasCol = i;
+  }
+  return {elCol, gasCol};
+}
+
+// ─── LOAD LUMINARITY (multi-file) ────────────────────────────
+// Each LUMINARITY workbook (e.g. 2025, 2026) has 12 monthly data sheets plus
+// heavy non-data sheets (DASHBOARD, CHART, ΛΙΣΤΕΣ, …). We do a two-pass parse:
+// first a fast `bookSheets` pre-pass for sheet names, then a real parse limited
+// to ΛΙΣΤΕΣ + the data sheets. Each sheet is processed in an async loop that
+// yields to the browser between sheets so the UI keeps painting.
+const tagLumProgress = (msg) => {
+  const wrap = document.getElementById('tagsLum');
+  if(!wrap) return;
+  // Append/replace a single progress chip at the end without clobbering the
+  // already-loaded file tags.
+  let chip = wrap.querySelector('.lum-progress');
+  if(!chip){
+    chip = document.createElement('div');
+    chip.className = 'file-tag lum-progress';
+    chip.style.cssText = 'background:#1c2444;border-color:var(--accent)';
+    wrap.appendChild(chip);
+  }
+  chip.textContent = '⏳ ' + msg;
+};
+const tagLumProgressClear = () => {
+  const wrap = document.getElementById('tagsLum');
+  if(!wrap) return;
+  const chip = wrap.querySelector('.lum-progress');
+  if(chip) chip.remove();
+};
+
+async function loadLumFiles(inp){
+  const files = Array.from(inp.files);
+  if(!files.length) return;
+  for(const file of files){
+    try{
+      const data = await parseLumFile(file);
+      if(data){
+        // Replace if same name already loaded (re-uploading a file)
+        const existing = S.lumFiles.findIndex(f => f.name === file.name);
+        if(existing >= 0) S.lumFiles.splice(existing, 1, data);
+        else S.lumFiles.push(data);
+      }
+    } catch(err){
+      addLog('❌ Σφάλμα ' + file.name + ': ' + err.message, 'err');
+    }
+  }
+  inp.value = '';
+  tagLumProgressClear();
+  rebuildLumState();
+}
+
+// Pre-built whitelist of expected LUMINARITY data sheet names. XLSX.read
+// with `sheets:` will skip everything not in this list (DASHBOARD, CHART,
+// DASH_DATA, calc-only sheets, …) without parsing their XML.
+// We pre-list ΛΙΣΤΕΣ + Greek month names with a wide year range so that
+// 2024/2025/2026/2027 LUMINARITY workbooks all match.
+const LUM_SHEET_WHITELIST = (() => {
+  const list = ['ΛΙΣΤΕΣ', 'LISTS'];
+  for(const m of MONTH_NAMES_GR){
+    list.push(m);
+    for(let y = 2022; y <= 2030; y++) list.push(`${m} ${y}`);
+  }
+  return list;
+})();
+
+function parseLumFile(file){
+  return new Promise(resolve => {
+    const rd = new FileReader();
+    rd.onload = async (e) => {
+      try{
+        const buffer = e.target.result;
+        tagLumProgress(`${file.name}: ανάγνωση…`);
+        await new Promise(r => setTimeout(r, 0));
+
+        // Single-pass parse with sheet whitelist. We disable formula and
+        // style parsing because we only need cell values — these two flags
+        // are the big wins for .xlsm files with many computed cells.
+        const wb = XLSX.read(buffer, {
+          type:         'array',
+          cellDates:    true,
+          sheets:       LUM_SHEET_WHITELIST,
+          cellFormula:  false,
+          cellStyles:   false,
+          cellHTML:     false,
+          bookVBA:      false,
+        });
+
+        const fileMasterByName = new Map();
+        const fileMasterByCode = new Map();
+        const fileDealerByCode = new Map();
+        const fileRows = [];
+
+        const listsSheet = wb.Sheets['ΛΙΣΤΕΣ'] || wb.Sheets['LISTS'];
+        if(listsSheet){
+          const listsRaw = XLSX.utils.sheet_to_json(listsSheet, {header:1, defval:null});
+          for(let i = 1; i < listsRaw.length; i++){
+            const r = listsRaw[i];
+            const master = String(r[5] ?? '').trim();
+            const dName  = String(r[6] ?? '').trim().toUpperCase();
+            const dCode  = String(r[7] ?? '').trim().toUpperCase();
+            if(master && dName) fileMasterByName.set(dName, master);
+            if(master && dCode) fileMasterByCode.set(dCode, master);
+            if(dCode && dName)  fileDealerByCode.set(dCode, dName);
+          }
+          addLog(`✓ ${file.name} ΛΙΣΤΕΣ: ${fileMasterByName.size} αντιστοιχίες`);
+        }
+
+        const dataSheetsActual = wb.SheetNames.filter(isDataSheet);
+        for(let idx = 0; idx < dataSheetsActual.length; idx++){
+          const shName = dataSheetsActual[idx];
+          tagLumProgress(`${file.name}: ${idx + 1}/${dataSheetsActual.length} — ${shName}`);
+          // Browsers clamp setTimeout(0) to ~4ms. Yielding every iteration on
+          // a 12-sheet loop is ~48ms of pure overhead — yield only every 4
+          // sheets so the UI still updates a few times during the load.
+          if(idx > 0 && idx % 4 === 0){
+            await new Promise(r => setTimeout(r, 0));
+          }
+
+          const ws = wb.Sheets[shName];
+          const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+          if(raw.length < 2) continue;
+
+          const hdr = raw[0].map(h => String(h ?? '').trim());
+          let cDate   = findCol(hdr,'HM/MM','ΗΜΕΡΟΜ');            if(cDate<0)   cDate=0;
+          let cName   = findCol(hdr,'ΟΝΟΜΑΤ','NAME');              if(cName<0)   cName=1;
+          let cAfm    = findCol(hdr,'ΑΦΜ','AFM');                  if(cAfm<0)    cAfm=2;
+          let cType   = findCol(hdr,'ΤΥΠΟΣ ΠΑΡΟΧ');                if(cType<0)   cType=3;
+          let cSupply = findCol(hdr,'ΑΡ ΠΑΡΟΧ','ΑΡΙΘΜ ΠΑΡΟΧ');    if(cSupply<0) cSupply=4;
+          let cDealer = findCol(hdr,'DEALER','ΣΥΝΕΡΓ');            if(cDealer<0) cDealer=5;
+          let cApp    = findCol(hdr,'ΤΥΠΟΣ ΑΙΤΗΣ');                if(cApp<0)    cApp=6;
+          let cStatus = findCol(hdr,'STATUS');                      if(cStatus<0) cStatus=7;
+          let cProg   = findCol(hdr,'ΠΡΟΓΡΑΜ');                    if(cProg<0)   cProg=8;
+          let cGramm  = findCol(hdr,'ΓΡΑΜΜΟΓΡΑΦ');                 if(cGramm<0)  cGramm=13;
+
+          let cnt = 0;
+          for(let i = 1; i < raw.length; i++){
+            const r = raw[i];
+            const supply = r[cSupply];
+            const dealer = r[cDealer];
+            if(!supply || !dealer) continue;
+            const rawType = String(r[cType] ?? '').toUpperCase();
+            const type = rawType.includes('ΑΕΡΙΟ') ? 'ΑΕΡΙΟ'
+                       : (rawType.includes('ΡΕΥΜΑ') || rawType.includes('REUMA')) ? 'ΡΕΥΜΑ'
+                       : rawType;
+            const gramm = String(r[cGramm] ?? '');
+            const grParts = gramm.split('|').map(s => s.trim());
+            const dealerCode = grParts.length >= 7 ? grParts[6].toUpperCase() : '';
+            const master = fileMasterByName.get(String(dealer).trim().toUpperCase())
+                        || fileMasterByCode.get(dealerCode)
+                        || '';
+            const lumParsed = parseDate(r[cDate]);
+            const lumMonthLbl = lumParsed ? monthLabel(lumParsed) : shName;
+            fileRows.push({
+              date:    r[cDate]   ?? '',
+              name:    r[cName]   ?? '',
+              afm:     norm(r[cAfm]),
+              type,
+              supply:  norm(supply),
+              dealer:  String(dealer).trim(),
+              master:  master,
+              appType: r[cApp]    ?? '',
+              status:  r[cStatus] ?? '',
+              program: r[cProg]   ?? '',
+              month:   lumMonthLbl,
+              sheetMonth: shName,
+              srcFile: file.name,
+            });
+            cnt++;
+          }
+          addLog(`<span class="ok">✓ ${file.name} / ${shName}</span> — ${cnt} εγγραφές`);
+        }
+
+        addLog(`<span class="ok">${file.name}: ${fileRows.length} εγγραφές</span>`);
+        resolve({
+          name: file.name,
+          rows: fileRows,
+          masterByName: fileMasterByName,
+          masterByCode: fileMasterByCode,
+          dealerByCode: fileDealerByCode,
+        });
+      } catch(err){
+        addLog('❌ Σφάλμα ' + file.name + ': ' + err.message, 'err');
+        resolve(null);
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  });
+}
+
+// Rebuild the global S.lumRows + master maps from S.lumFiles. Performs the
+// dedup ("μοναδική φορά κάθε παροχή — η πιο πρόσφατη ημερομηνία") across
+// every loaded file and every monthly sheet.
+function rebuildLumState(){
+  S.masterByName = new Map();
+  S.masterByCode = new Map();
+  S.dealerByCode = new Map();
+
+  // Merge master maps from all files
+  for(const f of S.lumFiles){
+    for(const [k, v] of f.masterByName) if(!S.masterByName.has(k)) S.masterByName.set(k, v);
+    for(const [k, v] of f.masterByCode) if(!S.masterByCode.has(k)) S.masterByCode.set(k, v);
+    for(const [k, v] of f.dealerByCode) if(!S.dealerByCode.has(k)) S.dealerByCode.set(k, v);
+  }
+
+  // Merge rows, dedup by supply, keep row with latest date
+  const rowTs = (r) => {
+    const p = parseDate(r.date);
+    if(!p) return 0;
+    return new Date(p.year, (p.month || 1) - 1, p.day || 1).getTime();
+  };
+  const map = new Map();
+  let totalRaw = 0;
+  for(const f of S.lumFiles){
+    for(const r of f.rows){
+      totalRaw++;
+      if(!r.supply) continue;
+      const cur = map.get(r.supply);
+      if(!cur || rowTs(r) > rowTs(cur)) map.set(r.supply, r);
+    }
+  }
+  S.lumRows = [...map.values()];
+  const dups = totalRaw - S.lumRows.length;
+  addLog(`<br><span class="ok">LUMINARITY (συνολικά): ${S.lumRows.length} μοναδικές παροχές από ${S.lumFiles.length} αρχείο/α</span>${dups > 0 ? ` <span style="opacity:.7">(${dups} διπλότυπα συνενώθηκαν στην πιο πρόσφατη γραμμή)</span>` : ''}`);
+
+  renderLumTags();
+
+  // Populate month filter (Αμοιβές tab) from the deduped rows
+  const months = [...new Set(S.lumRows.map(r => r.month))].sort(compareMonthLabels);
+  const fM = document.getElementById('fMonth');
+  if(fM){
+    fM.innerHTML = '<option value="">Όλοι Μήνες</option>' +
+      months.map(m => `<option value="${m}">${m}</option>`).join('');
+  }
+
+  checkReady();
+  if(typeof checkCheckReady === 'function') checkCheckReady();
+}
+
+function renderLumTags(){
+  const wrap = document.getElementById('tagsLum');
+  if(!wrap) return;
+  wrap.innerHTML = S.lumFiles.map((f, i) =>
+    `<div class="file-tag">${f.name} <span class="badge">${f.rows.length}</span><button class="rm" onclick="removeLumFile(${i})" title="Αφαίρεση αρχείου">✕</button></div>`
+  ).join('');
+}
+
+function removeLumFile(idx){
+  S.lumFiles.splice(idx, 1);
+  rebuildLumState();
+}
+
+// ─── LOAD CLAWBACK ───────────────────────────────────────────
+function loadClaw(inp){
   const file = inp.files[0];
   if(!file) return;
   const rd = new FileReader();
   rd.onload = e => {
     try{
       const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
-      S.lumRows = [];
-      let sheets = 0;
-
-      // Build master-dealer lookup from ΛΙΣΤΕΣ sheet
-      // Structure: col5=Master(LUMIN/ΑΛΕΞ/ΞΗΡ), col6=dealer_name, col7=dealer_code
-      const masterByName = new Map(); // dealer_name_upper → master
-      const masterByCode = new Map(); // dealer_code_upper → master
-      const listsSheet = wb.Sheets['ΛΙΣΤΕΣ'] || wb.Sheets['LISTS'];
-      if(listsSheet){
-        const listsRaw = XLSX.utils.sheet_to_json(listsSheet, {header:1, defval:null});
-        for(let i = 1; i < listsRaw.length; i++){
-          const r = listsRaw[i];
-          const master = String(r[5] ?? '').trim();
-          const dName  = String(r[6] ?? '').trim().toUpperCase();
-          const dCode  = String(r[7] ?? '').trim().toUpperCase();
-          if(master && dName) masterByName.set(dName, master);
-          if(master && dCode) masterByCode.set(dCode, master);
-        }
-        addLog(`✓ ΛΙΣΤΕΣ: ${masterByName.size} dealer → master αντιστοιχίες`);
+      let allRows = null;
+      for(const sh of wb.SheetNames){
+        const raw = XLSX.utils.sheet_to_json(wb.Sheets[sh], {header:1, defval:null});
+        if(!allRows){ allRows = raw; }
+        else { for(let i=1;i<raw.length;i++) allRows.push(raw[i]); }
       }
-
-      for(const shName of wb.SheetNames){
-        if(!isDataSheet(shName)) continue;
-        const ws = wb.Sheets[shName];
-        const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
-        if(raw.length < 2) continue;
-
-        const hdr = raw[0].map(h => String(h ?? '').trim());
-
-        // Column detection — by name first, then fixed index
-        let cDate   = findCol(hdr,'HM/MM','ΗΜΕΡΟΜ');            if(cDate<0)   cDate=0;
-        let cName   = findCol(hdr,'ΟΝΟΜΑΤ','NAME');              if(cName<0)   cName=1;
-        let cAfm    = findCol(hdr,'ΑΦΜ','AFM');                  if(cAfm<0)    cAfm=2;
-        let cType   = findCol(hdr,'ΤΥΠΟΣ ΠΑΡΟΧ');                if(cType<0)   cType=3;
-        let cSupply = findCol(hdr,'ΑΡ ΠΑΡΟΧ','ΑΡΙΘΜ ΠΑΡΟΧ');    if(cSupply<0) cSupply=4;
-        let cDealer = findCol(hdr,'DEALER','ΣΥΝΕΡΓ');            if(cDealer<0) cDealer=5;
-        let cApp    = findCol(hdr,'ΤΥΠΟΣ ΑΙΤΗΣ');                if(cApp<0)    cApp=6;
-        let cStatus = findCol(hdr,'STATUS');                      if(cStatus<0) cStatus=7;
-        let cProg   = findCol(hdr,'ΠΡΟΓΡΑΜ');                    if(cProg<0)   cProg=8;
-        let cGramm  = findCol(hdr,'ΓΡΑΜΜΟΓΡΑΦ');                 if(cGramm<0)  cGramm=13;
-
-        let cnt = 0;
-        for(let i = 1; i < raw.length; i++){
-          const r = raw[i];
-          const supply = r[cSupply];
-          const dealer = r[cDealer];
-          if(!supply || !dealer) continue;
-          const rawType = String(r[cType] ?? '').toUpperCase();
-          const type = rawType.includes('ΑΕΡΙΟ') ? 'ΑΕΡΙΟ'
-                     : (rawType.includes('ΡΕΥΜΑ') || rawType.includes('REUMA')) ? 'ΡΕΥΜΑ'
-                     : rawType;
-          // Resolve master dealer: lookup by dealer name first, then by code from ΓΡΑΜΜΟΓΡΑΦΗΣΗ
-          const gramm = String(r[cGramm] ?? '');
-          const grParts = gramm.split('|').map(s => s.trim());
-          const dealerCode = grParts.length >= 7 ? grParts[6].toUpperCase() : '';
-          const master = masterByName.get(String(dealer).trim().toUpperCase())
-                      || masterByCode.get(dealerCode)
-                      || '';
-          S.lumRows.push({
-            date:    r[cDate]   ?? '',
-            name:    r[cName]   ?? '',
-            afm:     norm(r[cAfm]),
-            type,
-            supply:  norm(supply),
-            dealer:  String(dealer).trim(),
-            master:  master,
-            appType: r[cApp]    ?? '',
-            status:  r[cStatus] ?? '',
-            program: r[cProg]   ?? '',
-            month:   shName,
-          });
-          cnt++;
-        }
-        sheets++;
-        addLog(`<span class="ok">✓ ${shName}</span> — ${cnt} εγγραφές`);
-      }
-
-      addLog(`<br><span class="ok">LUMINARITY: ${S.lumRows.length} εγγραφές από ${sheets} φύλλα</span>`);
-      document.getElementById('tagLum').innerHTML =
-        `<div class="file-tag">${file.name} <span class="badge">${S.lumRows.length} εγγρ.</span></div>`;
-
-      // Populate month filter
-      const months = [...new Set(S.lumRows.map(r => r.month))];
-      const fM = document.getElementById('fMonth');
-      fM.innerHTML = '<option value="">Όλοι Μήνες</option>' +
-        months.map(m => `<option value="${m}">${m}</option>`).join('');
+      if(!allRows || allRows.length < 2){ addLog('❌ Κενό clawback αρχείο','err'); return; }
+      S.clawRawRows = allRows.slice(1).filter(r => r.some(c => c!=null && c!==''));
+      addLog(`<span class="ok">✓ Clawback: ${S.clawRawRows.length} εγγραφές</span>`);
+      document.getElementById('tagClaw').innerHTML =
+        `<div class="file-tag" style="border-color:#ef4444;background:#1c0a0a;color:#fca5a5">${file.name} <span class="badge" style="background:#ef4444">${S.clawRawRows.length} εγγρ.</span><button class="rm" onclick="clearFile('claw')" title="Αφαίρεση αρχείου" style="color:#fca5a5">✕</button></div>`;
     } catch(err){
-      addLog('❌ Σφάλμα LUMINARITY: ' + err.message, 'err');
+      addLog('❌ Σφάλμα Claw Back: '+err.message,'err');
     }
-    checkReady();
   };
   rd.readAsArrayBuffer(file);
 }
@@ -485,9 +1056,10 @@ function loadDeh(inp){
       S.dehHeaders = allRows[0].map(h => String(h ?? '').trim());
       S.dehRows = allRows.slice(1).filter(r => r.some(c => c != null && c !== ''));
 
-      // Auto-detect supply columns
-      S.elCol  = findCol(S.dehHeaders, 'electricity supply', 'el supply', 'supply number el', 'supply el');
-      S.gasCol = findCol(S.dehHeaders, 'gas supply', 'gas supply number', 'supply gas', 'supply number gas');
+      // Auto-detect supply columns (English + Greek)
+      const _det = detectSupplyCols(S.dehHeaders);
+      S.elCol  = _det.elCol;
+      S.gasCol = _det.gasCol;
 
       const picker = document.getElementById('colPicker');
       const autoMsg = document.getElementById('autoDetectMsg');
@@ -511,7 +1083,7 @@ function loadDeh(inp){
       }
 
       document.getElementById('tagDeh').innerHTML =
-        `<div class="file-tag">${file.name} <span class="badge">${S.dehRows.length} εγγρ.</span></div>`;
+        `<div class="file-tag">${file.name} <span class="badge">${S.dehRows.length} εγγρ.</span><button class="rm" onclick="clearFile('deh')" title="Αφαίρεση αρχείου">✕</button></div>`;
     } catch(err){
       addLog('❌ Σφάλμα ΔΕΗ: ' + err.message, 'err');
     }
@@ -541,6 +1113,8 @@ function analyze(){
     if(r.type === 'ΡΕΥΜΑ') reumaMap.set(k, r);
     else if(r.type === 'ΑΕΡΙΟ') aerioMap.set(k, r);
   }
+  S.reumaMap = reumaMap;
+  S.aerioMap = aerioMap;
 
   S.matched = [];
   S.unmatched = [];
@@ -569,6 +1143,47 @@ function analyze(){
   addLog(`<span class="ok">✓ Αντιστοιχίστηκαν: ${S.matched.length} / ${S.dehRows.length} (${pct}%)</span>`);
   if(S.unmatched.length) addLog(`⚠️ Δεν βρέθηκαν: ${S.unmatched.length}`, 'warn');
 
+  // ── Match clawbacks ──
+  S.clawMatched = [];
+  S.clawUnmatched = [];
+  if(S.clawRawRows.length > 0){
+    for(const cr of S.clawRawRows){
+      // Subject: "supply | type | program | appType | SUBDEALER | LUMINARITY | dealer_code | name | afm"
+      // Parts[0] may have a text prefix e.g. "ΕΠΙΛΥΣΗ ΕΚΚΡΕΜΟΤΗΤΑΣ 220626500"
+      const subject = String(cr[2] ?? '');
+      const parts   = subject.split('|').map(s => s.trim());
+      // Extract supply: find the last numeric sequence in parts[0]
+      const supplyMatch = (parts[0] || '').match(/\d{7,}/);
+      const supply  = supplyMatch ? supplyMatch[0] : '';
+      const rawType = parts[1] ? parts[1].toUpperCase() : String(cr[8] ?? '').toUpperCase();
+      const type    = rawType.includes('ΑΕΡΙΟ') || rawType.includes('GAS') ? 'ΑΕΡΙΟ' : 'ΡΕΥΜΑ';
+      const program = parts[2] || '';
+      const appType = parts[3] || String(cr[18] ?? '');
+      const custName= parts[7] || '';
+      const afm     = parts[8] ? norm(parts[8]) : '';
+      const dealerCode = parts[6] ? parts[6].toUpperCase() : '';
+      // Amount: can be '-' or number
+      const rawAmt  = cr[20];
+      const amount  = (rawAmt === '-' || rawAmt == null) ? 0 : (parseFloat(rawAmt) || 0);
+      const churnMonth = String(cr[17] ?? '');
+
+      let lumRow = null;
+      if(supply){
+        lumRow = (type==='ΡΕΥΜΑ' ? S.reumaMap : S.aerioMap).get(supply) || null;
+      }
+
+      const dealer = lumRow ? lumRow.dealer : '';
+      const master = lumRow ? lumRow.master : (S.masterByCode.get(dealerCode) || '');
+
+      const cbObj = {supply, type, name:custName, afm, appType, program,
+                     dealer, master, amount, churnMonth, lumRow, cbRow:cr};
+
+      if(dealer || master){ S.clawMatched.push(cbObj); }
+      else { S.clawUnmatched.push(cbObj); }
+    }
+    addLog(`<span style="color:#ef4444">🔴 Claw Back: ${S.clawMatched.length} αντιστοιχίστηκαν, ${S.clawUnmatched.length} δεν βρέθηκαν</span>`);
+  }
+
   // Populate dealer filter
   const dealers = [...new Set(S.matched.map(m => m.lum.dealer))].sort();
   const fD = document.getElementById('fDealer');
@@ -584,10 +1199,11 @@ function analyze(){
   // Populate export dropdown with specific master options
   const expSel = document.getElementById('exportMode');
   expSel.innerHTML =
-    '<option value="all_dealer">Εξαγωγή: Όλοι ανά Συνεργάτη</option>' +
-    '<option value="all_master">Εξαγωγή: Όλοι ανά Master Dealer</option>' +
+    '<option value="full_detail">📋 Πλήρης Εξαγωγή Αναλυτικών</option>' +
+    '<option value="all_dealer">👤 Εξαγωγή: Όλοι ανά Συνεργάτη</option>' +
+    '<option value="all_master">🏢 Εξαγωγή: Όλοι ανά Master Dealer</option>' +
     '<option disabled>──────────────</option>' +
-    masters.map(m => `<option value="master:${m}">Master: ${m} (σύνολο + ανά συνεργάτη)</option>`).join('');
+    masters.map(m => `<option value="master:${m}">🏢 Master: ${m} (σύνολο + ανά συνεργάτη)</option>`).join('');
 
   // Show UI
   document.getElementById('kpiGrid').style.display = '';
@@ -617,6 +1233,9 @@ function renderKPIs(){
   document.getElementById('kUnmSub').textContent  = S.unmatched.length === 0 ? 'Πλήρης αντιστοίχιση ✓' : 'χωρίς match';
   document.getElementById('kDealers').textContent = byDealer.size;
   document.getElementById('kDealersSub').textContent = 'ενεργοί συνεργάτες';
+  document.getElementById('kClaw').textContent    = S.clawMatched.length;
+  document.getElementById('kClawSub').textContent = S.clawMatched.length > 0
+    ? `${S.clawUnmatched.length} χωρίς match` : S.clawRawRows.length === 0 ? 'Δεν φορτώθηκε' : '–';
   document.getElementById('kTop').textContent     = topName;
   document.getElementById('kTopSub').textContent  = topName !== '–' ? `${topCnt} παροχές` : '';
 }
@@ -864,85 +1483,242 @@ function buildLumRows(matchList){
 
 function sheetName(s){ return String(s).replace(/[\\\/\?\*\[\]:]/g,'_').substring(0,31); }
 
-function makeSummarySheet(grouped, labelKey){
-  const rows = [...grouped.entries()]
+// ─── EXCEL COLUMN DEFINITIONS ────────────────────────────────
+const XL_COLS = [
+  {header:'MASTER DEALER',      key:'master',   width:16},
+  {header:'DEALER / ΣΥΝΕΡΓΑΤΗΣ',key:'dealer',   width:30},
+  {header:'ΟΝΟΜΑΤΕΠΩΝΥΜΟ',      key:'name',     width:30},
+  {header:'ΑΦΜ',                key:'afm',      width:13},
+  {header:'ΑΡ. ΠΑΡΟΧΗΣ',        key:'supply',   width:18},
+  {header:'ΤΥΠΟΣ ΠΑΡΟΧΗΣ',      key:'type',     width:14},
+  {header:'ΤΥΠΟΣ ΑΙΤΗΣΗΣ',      key:'appType',  width:26},
+  {header:'ΠΡΟΓΡΑΜΜΑ',           key:'program',  width:22},
+  {header:'STATUS',             key:'status',   width:24},
+  {header:'ΜΗΝΑΣ',              key:'month',    width:16},
+  {header:'ΤΥΠΟΣ ΕΓΓΡΑΦΗΣ',     key:'rowType',  width:14},
+];
+
+function matchedToXlRow(m){
+  return {
+    master:  m.lum.master,  dealer:  m.lum.dealer,
+    name:    m.lum.name,    afm:     m.lum.afm,
+    supply:  m.lum.supply,  type:    m.lum.type,
+    appType: m.lum.appType, program: m.lum.program,
+    status:  m.lum.status,  month:   m.lum.month,
+    rowType: 'ΑΜΟΙΒΗ',
+  };
+}
+function clawToXlRow(cb){
+  return {
+    master:  cb.master,  dealer:  cb.dealer,
+    name:    cb.name,    afm:     cb.afm,
+    supply:  cb.supply,  type:    cb.type,
+    appType: cb.appType, program: cb.program || '',
+    status:  cb.lumRow ? cb.lumRow.status : '',
+    month:   cb.churnMonth,
+    rowType: 'CLAWBACK',
+  };
+}
+
+// ─── EXCELJS STYLED EXPORT ────────────────────────────────────
+async function addStyledSheet(wb, wsName, normalRows, clawRows){
+  const ws = wb.addWorksheet(wsName, {views:[{state:'frozen',ySplit:1}]});
+  ws.columns = XL_COLS;
+
+  // Header styling
+  ws.getRow(1).height = 22;
+  ws.getRow(1).eachCell(cell => {
+    cell.font  = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+    cell.fill  = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
+    cell.alignment = {vertical:'middle', horizontal:'center', wrapText:false};
+    cell.border = {bottom:{style:'medium', color:{argb:'FF38bdf8'}}};
+  });
+
+  // Normal rows (alternating)
+  normalRows.forEach((r, i) => {
+    const row = ws.addRow(matchedToXlRow(r));
+    row.height = 16;
+    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF0F7FF';
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      cell.alignment = {vertical:'middle'};
+      cell.font = {size:10, name:'Calibri'};
+    });
+  });
+
+  // Clawback rows (red)
+  clawRows.forEach(cb => {
+    const row = ws.addRow(clawToXlRow(cb));
+    row.height = 16;
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.font  = {bold:true, color:{argb:'FFEF4444'}, size:10, name:'Calibri'};
+      cell.fill  = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFFF0F0'}};
+      cell.alignment = {vertical:'middle'};
+    });
+  });
+}
+
+async function addSummarySheet(wb, grouped, labelKey, clawGrouped){
+  const ws = wb.addWorksheet('ΣΥΝΟΨΗ', {views:[{state:'frozen',ySplit:1}]});
+  ws.columns = [
+    {header:labelKey,          key:'name',   width:30},
+    {header:'ΑΜΟΙΒΕΣ',         key:'amv',    width:12},
+    {header:'CLAWBACK',        key:'claw',   width:12},
+    {header:'ΡΕΥΜΑ (ΑΜΟΙΒ.)', key:'reuma',  width:16},
+    {header:'ΑΕΡΙΟ (ΑΜΟΙΒ.)', key:'aerio',  width:16},
+  ];
+  ws.getRow(1).height = 22;
+  ws.getRow(1).eachCell(cell => {
+    cell.font  = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+    cell.fill  = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
+    cell.alignment = {vertical:'middle', horizontal:'center'};
+    cell.border = {bottom:{style:'medium', color:{argb:'FF38bdf8'}}};
+  });
+
+  const entries = [...grouped.entries()]
     .map(([name, arr]) => ({
-      [labelKey]: name,
-      'ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ': arr.length,
-      'ΡΕΥΜΑ': arr.filter(r => r.lum.type === 'ΡΕΥΜΑ').length,
-      'ΦΥΣΙΚΟ ΑΕΡΙΟ': arr.filter(r => r.lum.type === 'ΑΕΡΙΟ').length,
+      name,
+      amv:   arr.length,
+      claw:  (clawGrouped?.get(name)||[]).length,
+      reuma: arr.filter(r=>r.lum.type==='ΡΕΥΜΑ').length,
+      aerio: arr.filter(r=>r.lum.type==='ΑΕΡΙΟ').length,
     }))
-    .sort((a, b) => b['ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ'] - a['ΣΥΝΟΛΟ ΠΑΡΟΧΩΝ']);
-  return XLSX.utils.json_to_sheet(rows);
+    .sort((a,b)=>b.amv-a.amv);
+
+  entries.forEach((r,i) => {
+    const row = ws.addRow(r);
+    row.height = 16;
+    const bg = i%2===0?'FFFFFFFF':'FFF0F7FF';
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      cell.alignment = {vertical:'middle'};
+      cell.font = {size:10, name:'Calibri'};
+    });
+    // Red clawback count
+    if(r.claw > 0){
+      const c = row.getCell('claw');
+      c.font = {bold:true, color:{argb:'FFEF4444'}, size:10, name:'Calibri'};
+    }
+  });
 }
 
-function doExport(){
+async function doExport(){
   if(!S.matched.length){ alert('Εκτελέστε πρώτα την ανάλυση.'); return; }
-  const mode = document.getElementById('exportMode').value;
-  const wb   = XLSX.utils.book_new();
-  const dt   = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
-  let filename;
+  const btn = document.querySelector('.btn-green[onclick="doExport()"]');
+  btn.textContent = '⏳ Δημιουργία…'; btn.disabled = true;
 
-  if(mode === 'all_dealer'){
-    // ΣΥΝΟΨΗ + ένα φύλλο ανά συνεργάτη
-    const grouped = groupByKey(S.matched, 'dealer');
-    XLSX.utils.book_append_sheet(wb, makeSummarySheet(grouped,'ΣΥΝΕΡΓΑΤΗΣ'), 'ΣΥΝΟΨΗ');
-    for(const [name, arr] of grouped)
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
-    filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_ΣΥΝΕΡΓ_${dt}.xlsx`;
+  try{
+    const mode = document.getElementById('exportMode').value;
+    const wb   = new ExcelJS.Workbook();
+    wb.creator = 'LUMINARITY Dashboard';
+    const dt   = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
+    let filename;
 
-  } else if(mode === 'all_master'){
-    // ΣΥΝΟΨΗ + ένα φύλλο ανά master
-    const grouped = groupByKey(S.matched, 'master');
-    XLSX.utils.book_append_sheet(wb, makeSummarySheet(grouped,'MASTER DEALER'), 'ΣΥΝΟΨΗ');
-    for(const [name, arr] of grouped)
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
-    filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_MASTER_${dt}.xlsx`;
+    // Helper: get clawbacks by group key
+    function clawByKey(key){
+      const m = new Map();
+      for(const cb of S.clawMatched){
+        const k = cb[key] || '(χωρίς)';
+        if(!m.has(k)) m.set(k,[]);
+        m.get(k).push(cb);
+      }
+      return m;
+    }
 
-  } else if(mode.startsWith('master:')){
-    // Συγκεκριμένος master: φύλλο ΣΥΝΟΛΟ + ένα φύλλο ανά dealer
-    const masterName = mode.slice(7);
-    const masterRows = S.matched.filter(m => m.lum.master === masterName);
-    if(!masterRows.length){ alert(`Δεν βρέθηκαν εγγραφές για master: ${masterName}`); return; }
-    // Φύλλο συνόλου
-    XLSX.utils.book_append_sheet(wb,
-      XLSX.utils.json_to_sheet(buildLumRows(masterRows)),
-      sheetName(masterName + ' ΣΥΝΟΛΟ'));
-    // Ένα φύλλο ανά dealer
-    const byDealer = groupByKey(masterRows, 'dealer');
-    for(const [d, arr] of byDealer)
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(d));
-    filename = `ΑΜΟΙΒΕΣ_${masterName}_${dt}.xlsx`;
+    if(mode === 'full_detail'){
+      // One sheet: all matched + all clawbacks sorted master→dealer
+      const allNormal = [...S.matched].sort((a,b)=>{
+        const ma=a.lum.master, mb=b.lum.master;
+        if(ma<mb)return -1; if(ma>mb)return 1;
+        return a.lum.dealer.localeCompare(b.lum.dealer);
+      });
+      const allClaw = [...S.clawMatched].sort((a,b)=>{
+        if(a.master<b.master)return -1; if(a.master>b.master)return 1;
+        return (a.dealer||'').localeCompare(b.dealer||'');
+      });
+      await addSummarySheet(wb, groupByKey(S.matched,'dealer'), 'DEALER / ΣΥΝΕΡΓΑΤΗΣ', clawByKey('dealer'));
+      await addStyledSheet(wb, 'ΑΝΑΛΥΤΙΚΑ', allNormal, allClaw);
+      filename = `ΑΜΟΙΒΕΣ_ΠΛΗΡΗΣ_${dt}.xlsx`;
+
+    } else if(mode === 'all_dealer'){
+      const grouped    = groupByKey(S.matched, 'dealer');
+      const clawGrp    = clawByKey('dealer');
+      await addSummarySheet(wb, grouped, 'DEALER / ΣΥΝΕΡΓΑΤΗΣ', clawGrp);
+      for(const [name, arr] of grouped)
+        await addStyledSheet(wb, sheetName(name), arr, clawGrp.get(name)||[]);
+      filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_ΣΥΝΕΡΓ_${dt}.xlsx`;
+
+    } else if(mode === 'all_master'){
+      const grouped = groupByKey(S.matched, 'master');
+      const clawGrp = clawByKey('master');
+      await addSummarySheet(wb, grouped, 'MASTER DEALER', clawGrp);
+      for(const [name, arr] of grouped)
+        await addStyledSheet(wb, sheetName(name), arr, clawGrp.get(name)||[]);
+      filename = `ΑΜΟΙΒΕΣ_ΑΝΑ_MASTER_${dt}.xlsx`;
+
+    } else if(mode.startsWith('master:')){
+      const masterName = mode.slice(7);
+      const masterRows = S.matched.filter(m => m.lum.master === masterName);
+      const masterClaw = S.clawMatched.filter(cb => cb.master === masterName);
+      if(!masterRows.length && !masterClaw.length){
+        alert(`Δεν βρέθηκαν εγγραφές για master: ${masterName}`); return;
+      }
+      // Summary για αυτόν τον master
+      await addSummarySheet(wb, groupByKey(masterRows,'dealer'), 'DEALER / ΣΥΝΕΡΓΑΤΗΣ', clawByKey('dealer'));
+      // Συνολικό φύλλο master
+      await addStyledSheet(wb, sheetName(masterName+' ΣΥΝΟΛΟ'), masterRows, masterClaw);
+      // Ένα φύλλο ανά dealer
+      const byDealer  = groupByKey(masterRows, 'dealer');
+      const clawByDlr = clawByKey('dealer');
+      for(const [d, arr] of byDealer)
+        await addStyledSheet(wb, sheetName(d), arr, clawByDlr.get(d)||[]);
+      filename = `ΑΜΟΙΒΕΣ_${masterName}_${dt}.xlsx`;
+    }
+
+    const buf  = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    btn.textContent = '⬇ Εξαγωγή'; btn.disabled = false;
   }
-
-  XLSX.writeFile(wb, filename);
 }
 
-function exportFiltered(){
+async function exportFiltered(){
   const filtered = getDetailFiltered();
   if(!filtered.length){ alert('Δεν υπάρχουν εγγραφές για εξαγωγή.'); return; }
-  const wb  = XLSX.utils.book_new();
-  const dt  = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
+  const wb     = new ExcelJS.Workbook();
+  wb.creator   = 'LUMINARITY Dashboard';
+  const dt     = new Date().toLocaleDateString('el-GR').replace(/\//g,'-');
   const master = document.getElementById('fMaster').value;
   const dealer = document.getElementById('fDealer').value;
 
+  function clawFor(key, val){
+    return S.clawMatched.filter(cb => cb[key] === val);
+  }
+
   if(dealer){
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(filtered)), sheetName(dealer));
+    await addStyledSheet(wb, sheetName(dealer), filtered, clawFor('dealer',dealer));
   } else if(master){
-    // Φύλλο συνόλου + ανά dealer
-    XLSX.utils.book_append_sheet(wb,
-      XLSX.utils.json_to_sheet(buildLumRows(filtered)),
-      sheetName(master + ' ΣΥΝΟΛΟ'));
-    const byDealer = groupByKey(filtered, 'dealer');
-    for(const [d, arr] of byDealer)
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(d));
+    await addStyledSheet(wb, sheetName(master+' ΣΥΝΟΛΟ'), filtered, clawFor('master',master));
+    const byDealer = groupByKey(filtered,'dealer');
+    for(const [d,arr] of byDealer)
+      await addStyledSheet(wb, sheetName(d), arr, clawFor('dealer',d));
   } else {
-    const key = groupMode === 'master' ? 'master' : 'dealer';
+    const key     = groupMode==='master'?'master':'dealer';
     const grouped = groupByKey(filtered, key);
     for(const [name, arr] of grouped)
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(buildLumRows(arr)), sheetName(name));
+      await addStyledSheet(wb, sheetName(name), arr,
+        S.clawMatched.filter(cb=>cb[key]===name));
   }
-  XLSX.writeFile(wb, `ΑΜΟΙΒΕΣ_ΦΙΛΤΡΟ_${dt}.xlsx`);
+  const buf  = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download=`ΑΜΟΙΒΕΣ_ΦΙΛΤΡΟ_${dt}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ─── TABS ────────────────────────────────────────────────────
@@ -958,6 +1734,1523 @@ function switchTab(el){
 function switchTabByName(name){
   const tab = document.querySelector(`.tab[data-tab="${name}"]`);
   if(tab) switchTab(tab);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ─── ΕΛΕΓΧΟΣ ΑΠΛΗΡΩΤΩΝ ΑΙΤΗΣΕΩΝ ─────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+function switchMode(mode){
+  document.querySelectorAll('.mode-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.mode === mode));
+  const targetId = 'mode' + mode.charAt(0).toUpperCase() + mode.slice(1);
+  document.querySelectorAll('.mode-view').forEach(v =>
+    v.classList.toggle('active', v.id === targetId));
+}
+
+const C = {
+  dailyFiles:       [],   // [{name, rows}]  — each Daily Report file's parsed rows
+  dailyRows:        [],   // merged across all daily files (ALL rows, not just CLOSED)
+  closedRows:       [],   // unique-per-supply rows (status=CLOSED, latest date wins)
+  amoivesFiles:     [],   // [{name, supplies:Set, count}]
+  clawbackFiles:    [],   // [{name, supplies:Set, count}]  — refunded supplies
+  paidSupplies:     new Map(),  // supply → [filenames]
+  clawbackSupplies: new Map(),  // supply → [filenames]
+  results:          [],   // [{row, paid, paidIn:[], clawback, clawbackIn:[]}]
+  activeMonths:     new Set(),
+  // Ad-hoc list checkers (independent from main runCheck flow):
+  adhocFiles:       [],   // [{name, columnHeader, supplies:Set}] — claimed-unpaid lists
+  sentFiles:        [],   // [{name, columnHeader, supplies:Set}] — files sent to dealers
+  adhocPending:     {adhoc: [], sent: []},  // files awaiting column choice
+};
+
+function logCheck(msg, cls=''){
+  const el = document.getElementById('logCheck');
+  el.classList.add('on');
+  el.innerHTML += `<span class="${cls}">${msg}</span><br>`;
+}
+
+function checkCheckReady(){
+  const hasSource = C.closedRows.length > 0 || S.lumRows.length > 0;
+  const ok = hasSource && C.amoivesFiles.length > 0;
+  document.getElementById('btnRunCheck').disabled = !ok;
+}
+
+// ─── DAILY REPORT LOADERS (multi-file) ───────────────────────
+// Supports the ΔΕΗ Daily Report format with dual supply columns
+// (ΡΕΥΜΑ Αριθμός Παροχής + ΦΑ ΗΚΑΣΠ), FINAL STATUS column,
+// and a "From email" subject column with pipe-separated metadata.
+async function loadDailyFiles(inp){
+  const files = Array.from(inp.files);
+  if(!files.length) return;
+  for(const file of files){
+    try{
+      const data = await parseDailyFile(file);
+      if(data){
+        const existing = C.dailyFiles.findIndex(f => f.name === file.name);
+        if(existing >= 0) C.dailyFiles.splice(existing, 1, data);
+        else C.dailyFiles.push(data);
+      }
+    } catch(err){
+      logCheck(`❌ ${file.name}: ${err.message}`, 'err');
+    }
+  }
+  inp.value = '';
+  rebuildDailyState();
+}
+
+function clearDaily(){
+  C.dailyFiles = [];
+  C.dailyRows = [];
+  C.closedRows = [];
+  const inp = document.getElementById('filesDaily');
+  if(inp) inp.value = '';
+  const tags = document.getElementById('tagsDaily');
+  if(tags) tags.innerHTML = '';
+  checkCheckReady();
+}
+
+function renderDailyTags(){
+  const wrap = document.getElementById('tagsDaily');
+  if(!wrap) return;
+  wrap.innerHTML = C.dailyFiles.map((f, i) => {
+    const closed = f.rows.filter(r => r.status === 'CLOSED').length;
+    return `<div class="file-tag">${f.name} <span class="badge">${closed} CLOSED</span><button class="rm" onclick="removeDailyFile(${i})" title="Αφαίρεση αρχείου">✕</button></div>`;
+  }).join('');
+}
+
+function removeDailyFile(idx){
+  C.dailyFiles.splice(idx, 1);
+  rebuildDailyState();
+}
+
+function parseDailyFile(file){
+  return new Promise(resolve => {
+    const rd = new FileReader();
+    rd.onload = e => {
+      try{
+        const result = parseDailyBuffer(e.target.result, file.name);
+        resolve(result);
+      } catch(err){
+        logCheck(`❌ ${file.name}: ${err.message}`, 'err');
+        resolve(null);
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  });
+}
+
+function parseDailyBuffer(buffer, fileName){
+  const wb = XLSX.read(buffer, {type:'array', cellDates:true});
+  const fileRows = [];
+  let sheetsRead = 0, sheetsSkipped = 0;
+
+      for(const shName of wb.SheetNames){
+        if(SKIP.has(shName.toUpperCase().trim())) continue;
+        const ws = wb.Sheets[shName];
+        const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, raw:false});
+        if(raw.length < 2) continue;
+
+        const hdr = raw[0].map(h => String(h ?? '').trim());
+        const {elCol, gasCol} = detectSupplyCols(hdr);
+
+        // Only process sheets with at least one supply column we recognise
+        if(elCol < 0 && gasCol < 0){
+          sheetsSkipped++;
+          continue;
+        }
+
+        const cFinal   = findCol(hdr,'final status');
+        const cStatus  = findCol(hdr,'status');
+        const cMaster  = findCol(hdr,'master dealer','master');
+        const cProgram = findCol(hdr,'πρόγραμμα','προγραμμα','πρόγραμα');
+        const cSubCat  = findCol(hdr,'sub category','sub-category','sub_category');
+        const cCategory= findCol(hdr,'category');
+        const cSubject = findCol(hdr,'from email','subject');
+        const cMonth   = findCol(hdr,'month');
+        const cYear    = findCol(hdr,'year');
+        const cTicket  = findCol(hdr,'ticket');
+        // Column B = "Date Created" — the user's authoritative closed-date stamp.
+        // Column P = "LastHandlingDate" — fallback if Date Created is missing.
+        const cDateCreated = findCol(hdr,'date created','ημερομηνία','ημερομην');
+        const cLastHandle  = findCol(hdr,'lasthandlingdate','last handling','last handle');
+
+        let cnt = 0, closedCnt = 0;
+        for(let i = 1; i < raw.length; i++){
+          const r = raw[i];
+          if(!r || !r.some(c => c != null && c !== '')) continue;
+
+          const elS  = elCol  >= 0 ? norm(r[elCol])  : '';
+          const gasS = gasCol >= 0 ? norm(r[gasCol]) : '';
+          const supply = elS || gasS;
+          if(!supply) continue;
+          const type = elS ? 'ΡΕΥΜΑ' : 'ΑΕΡΙΟ';
+
+          // Status: prefer FINAL STATUS (clean values like "CLOSED"), else STATUS
+          const finalRaw = cFinal  >= 0 ? r[cFinal]  : null;
+          const statRaw  = cStatus >= 0 ? r[cStatus] : null;
+          const status = String((finalRaw != null && String(finalRaw).trim() !== '' ? finalRaw : statRaw) ?? '')
+                          .trim().toUpperCase();
+
+          // Subject parsing: "supply | type | program | appType | SUBDEALER | LUMINARITY | dealerCode | name | afm"
+          const subject = cSubject >= 0 ? String(r[cSubject] ?? '') : '';
+          const parts = subject.split('|').map(s => s.trim());
+          const programFromSub = parts[2] || '';
+          const appType        = parts[3] || (cSubCat  >= 0 ? String(r[cSubCat]  ?? '') : '');
+          const dealerCode     = (parts[6] || '').toUpperCase();
+          const customerName   = parts[7] || '';
+          const afm            = parts[8] || '';
+
+          const masterDirect = cMaster   >= 0 ? String(r[cMaster]   ?? '').trim() : '';
+          const programDirect= cProgram  >= 0 ? String(r[cProgram]  ?? '').trim() : '';
+
+          // Resolve master & dealer via the LUMINARITY-loaded maps when available
+          const master = S.masterByCode.get(dealerCode) || masterDirect || '';
+          const dealer = S.dealerByCode.get(dealerCode) || dealerCode || '';
+
+          // Closed-date detection: column B (Date Created) is authoritative
+          // per user. Falls back to LastHandlingDate, then DAY/MONTH/YEAR
+          // helper columns, then sheet name.
+          const dateRaw = cDateCreated >= 0 ? r[cDateCreated]
+                        : cLastHandle  >= 0 ? r[cLastHandle]
+                        : null;
+          const parsedDt = parseDate(dateRaw);
+          let monthStr = shName;
+          if(parsedDt){
+            monthStr = monthLabel(parsedDt);
+          } else if(cMonth >= 0){
+            const m = parseInt(r[cMonth]);
+            if(m >= 1 && m <= 12){
+              monthStr = MONTH_NAMES_GR[m - 1];
+              if(cYear >= 0){
+                const y = parseInt(r[cYear]);
+                if(y) monthStr += ' ' + y;
+              }
+            }
+          }
+
+          fileRows.push({
+            date:    dateRaw || '',
+            closedDay:   parsedDt ? parsedDt.day   : null,
+            closedMonth: parsedDt ? parsedDt.month : null,
+            closedYear:  parsedDt ? parsedDt.year  : null,
+            name:    customerName,
+            afm:     norm(afm),
+            type,
+            supply,
+            dealer,
+            master,
+            appType,
+            status,
+            program: programDirect || programFromSub,
+            month:   monthStr,
+            ticket:  cTicket >= 0 ? String(r[cTicket] ?? '').trim() : '',
+            srcFile: fileName,
+          });
+          cnt++;
+          if(status === 'CLOSED') closedCnt++;
+        }
+        sheetsRead++;
+        if(cnt > 0)
+          logCheck(`<span class="ok">✓ ${fileName} / ${shName}</span> — ${cnt} εγγραφές, <strong>${closedCnt} CLOSED</strong>`);
+      }
+
+  if(sheetsSkipped > 0)
+    logCheck(`<span style="opacity:.7">(${fileName}: παραλήφθηκαν ${sheetsSkipped} φύλλα χωρίς αναγνωρίσιμες στήλες παροχής)</span>`);
+
+  return {name: fileName, rows: fileRows, sheetsRead};
+}
+
+// Aggregate every loaded daily file: dedupe to one row per supply (latest
+// CLOSED date wins) and rebuild C.dailyRows / C.closedRows.
+function rebuildDailyState(){
+  C.dailyRows = [];
+  for(const f of C.dailyFiles) C.dailyRows.push(...f.rows);
+
+  // Dedup CLOSED rows by supply, keeping the row with the latest closed date.
+  const supplyMap = new Map();
+  const cmpRow = (a, b) => {
+    if(a.closedYear !== b.closedYear)   return (b.closedYear  || 0) - (a.closedYear  || 0);
+    if(a.closedMonth !== b.closedMonth) return (b.closedMonth || 0) - (a.closedMonth || 0);
+    return (b.closedDay || 0) - (a.closedDay || 0);
+  };
+  let dups = 0;
+  for(const r of C.dailyRows){
+    if(r.status !== 'CLOSED' || !r.supply) continue;
+    const cur = supplyMap.get(r.supply);
+    if(!cur){ supplyMap.set(r.supply, r); continue; }
+    dups++;
+    if(cmpRow(r, cur) < 0) supplyMap.set(r.supply, r);
+  }
+  C.closedRows = [...supplyMap.values()];
+
+  logCheck(`<br><span class="ok">Daily Reports (συνολικά): ${C.dailyRows.length} εγγραφές από ${C.dailyFiles.length} αρχείο/α — <strong>${C.closedRows.length} μοναδικές CLOSED παροχές</strong></span>${dups > 0 ? ` <span style="opacity:.7">(${dups} διπλότυπες CLOSED γραμμές συγχωνεύτηκαν στην πιο πρόσφατη)</span>` : ''}`);
+  if(S.masterByCode.size === 0)
+    logCheck('<span style="opacity:.7">ℹ️ Δεν έχει φορτωθεί LUMINARITY — οι στήλες Master / Συνεργάτης θα μείνουν κενές. (Προαιρετικό.)</span>');
+
+  renderDailyTags();
+  checkCheckReady();
+}
+
+// ─── MULTI ΑΜΟΙΒΕΣ LOADER ────────────────────────────────────
+function loadAmoivesFiles(inp){
+  const files = Array.from(inp.files);
+  if(!files.length) return;
+  let pending = files.length;
+  for(const file of files){
+    const rd = new FileReader();
+    rd.onload = e => {
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        let allRows = null;
+        for(const sh of wb.SheetNames){
+          const raw = XLSX.utils.sheet_to_json(wb.Sheets[sh], {header:1, defval:null});
+          if(!allRows) allRows = raw;
+          else for(let i = 1; i < raw.length; i++) allRows.push(raw[i]);
+        }
+        if(!allRows || allRows.length < 2){
+          logCheck(`❌ Κενό αρχείο: ${file.name}`, 'err');
+        } else {
+          const hdr = allRows[0].map(h => String(h ?? '').trim());
+          const {elCol, gasCol} = detectSupplyCols(hdr);
+          // Application-type info from the fee file: "Sub Category" carries
+          // the payment type (PORTABILITY / UPGRADE / ACQUISITION / …) and
+          // "ΠΡΟΓΡΑΜΜΑ" carries the product (MY HOME ENTER / etc.). Both are
+          // useful for the user to know how a fee was actually paid out.
+          const cSubCat = findCol(hdr, 'sub category', 'sub_category', 'sub-category');
+          const cProg   = findCol(hdr, 'πρόγραμμα', 'πρόγραμα', 'προγραμμα');
+          const supplies = new Set();
+          const infoBySupply = new Map();
+          for(let i = 1; i < allRows.length; i++){
+            const r = allRows[i];
+            if(!r || !r.some(c => c != null && c !== '')) continue;
+            const subCat = cSubCat >= 0 ? String(r[cSubCat] ?? '').trim() : '';
+            const prog   = cProg   >= 0 ? String(r[cProg]   ?? '').trim() : '';
+            const addSupply = (k) => {
+              if(!k) return;
+              supplies.add(k);
+              if(!infoBySupply.has(k) && (subCat || prog)){
+                infoBySupply.set(k, {subCat, prog});
+              }
+            };
+            if(elCol  >= 0) addSupply(norm(r[elCol]));
+            if(gasCol >= 0) addSupply(norm(r[gasCol]));
+          }
+          if(elCol < 0 && gasCol < 0){
+            const sample = hdr.slice(0, 10).map(h => h || '∅').join(' | ');
+            logCheck(`⚠️ ${file.name}: δεν εντοπίστηκαν στήλες αρ. παροχής<br><span style="opacity:.7">Πρώτες στήλες: ${sample}</span>`, 'warn');
+          } else {
+            const elName  = elCol  >= 0 ? `"${hdr[elCol]}"`  : '–';
+            const gasName = gasCol >= 0 ? `"${hdr[gasCol]}"` : '–';
+            const fileMonth = parseFeeMonthFromFilename(file.name);
+            C.amoivesFiles.push({name: file.name, supplies, count: supplies.size, month: fileMonth, infoBySupply});
+            const monthTag = fileMonth ? `, μήνας: ${fileMonth}` : ', μήνας: άγνωστος';
+            const typesFound = [...new Set([...infoBySupply.values()].map(v => v.subCat).filter(Boolean))];
+            const typesTag = typesFound.length ? `, τύποι: ${typesFound.join('/')}` : '';
+            logCheck(`<span class="ok">✓ ${file.name}</span> — ${supplies.size} αρ. παροχής <span style="opacity:.7">(ΡΕΥΜΑ: ${elName}, ΑΕΡΙΟ: ${gasName}${monthTag}${typesTag})</span>`);
+          }
+        }
+      } catch(err){
+        logCheck(`❌ ${file.name}: ${err.message}`, 'err');
+      }
+      if(--pending === 0){
+        renderAmoivesTags();
+        checkCheckReady();
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  }
+  inp.value = '';
+}
+
+function renderAmoivesTags(){
+  document.getElementById('tagsAmoivesCheck').innerHTML = C.amoivesFiles.map((f, i) =>
+    `<div class="file-tag">${f.name} <span class="badge">${f.count}</span><button class="rm" onclick="removeAmoivesFile(${i})" title="Αφαίρεση">✕</button></div>`
+  ).join('');
+}
+
+function removeAmoivesFile(idx){
+  C.amoivesFiles.splice(idx, 1);
+  renderAmoivesTags();
+  checkCheckReady();
+}
+
+// Look up how a supply was paid in the fee files: PORTABILITY / UPGRADE /
+// ACQUISITION etc. (from the "Sub Category" column). If the same supply
+// appears in multiple fee files with different types, all unique values
+// are returned joined with " / ".
+function getFeeAppType(supply){
+  const types = new Set();
+  for(const f of C.amoivesFiles){
+    const info = f.infoBySupply && f.infoBySupply.get(supply);
+    if(info && info.subCat) types.add(info.subCat);
+  }
+  return [...types].join(' / ');
+}
+function getFeeProgram(supply){
+  const progs = new Set();
+  for(const f of C.amoivesFiles){
+    const info = f.infoBySupply && f.infoBySupply.get(supply);
+    if(info && info.prog) progs.add(info.prog);
+  }
+  return [...progs].join(' / ');
+}
+
+// ─── MULTI CLAWBACK LOADER ───────────────────────────────────
+// Clawback files mark previously-paid supplies whose fees have been refunded.
+// Real-world ΔΕΗ clawback exports come in two layouts:
+//   (a) "Subject" pipe-separated column — supply lives inside that text
+//   (b) dedicated columns: "ΠΑΡΟΧΗ" (P) and/or Contract_Account (O)
+// We try ALL of these — direct columns first (cleaner), subject as fallback.
+function loadClawbackFiles(inp){
+  const files = Array.from(inp.files);
+  if(!files.length) return;
+  let pending = files.length;
+  for(const file of files){
+    const rd = new FileReader();
+    rd.onload = e => {
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+        let allRows = null;
+        for(const sh of wb.SheetNames){
+          const raw = XLSX.utils.sheet_to_json(wb.Sheets[sh], {header:1, defval:null, raw:false});
+          if(!allRows) allRows = raw;
+          else for(let i = 1; i < raw.length; i++) allRows.push(raw[i]);
+        }
+        if(!allRows || allRows.length < 2){
+          logCheck(`❌ Κενό clawback: ${file.name}`, 'err');
+        } else {
+          const hdr = allRows[0].map(h => String(h ?? '').trim());
+
+          // Direct supply columns (most reliable in ΔΕΗ clawback exports)
+          let cSupplyDirect = findCol(hdr, 'παροχή', 'παροχη');
+          // Don't accidentally match "ΚΑΤΗΓΟΡΙΑ ΠΑΡΟΧΗΣ" — check that ΠΑΡΟΧΗ is the
+          // primary token (i.e. header equals or starts with it after lowercasing).
+          if(cSupplyDirect >= 0){
+            const h = String(hdr[cSupplyDirect] || '').trim().toLowerCase();
+            if(h.includes('κατηγορ')) cSupplyDirect = -1;
+          }
+          let cSubject = findCol(hdr,'subject','from email','θέμα');
+          if(cSubject < 0) cSubject = 2;
+          const {elCol, gasCol} = detectSupplyCols(hdr);
+          // Churn Month — column with the month a clawback applies to.
+          // ΔΕΗ exports use values like "Mar2026" / "Feb2026".
+          const cChurn = findCol(hdr, 'churn month', 'churn_month');
+
+          const entries = [];          // [{supply, month}]
+          const supplies = new Set();
+          for(let i = 1; i < allRows.length; i++){
+            const r = allRows[i];
+            if(!r || !r.some(c => c != null && c !== '')) continue;
+
+            const churnMonth = cChurn >= 0 ? parseChurnMonth(r[cChurn]) : null;
+            const rowSupplies = new Set();
+
+            if(cSupplyDirect >= 0){
+              const k = norm(r[cSupplyDirect]);
+              if(k && /^\d{7,}$/.test(k)) rowSupplies.add(k);
+            }
+            if(elCol  >= 0){ const k = norm(r[elCol]);  if(k && /^\d{7,}$/.test(k)) rowSupplies.add(k); }
+            if(gasCol >= 0){ const k = norm(r[gasCol]); if(k && /^\d{7,}$/.test(k)) rowSupplies.add(k); }
+            if(cSubject >= 0){
+              const subject = String(r[cSubject] ?? '');
+              const parts = subject.split('|').map(s => s.trim());
+              const m = (parts[0] || '').match(/\d{7,}/);
+              if(m) rowSupplies.add(norm(m[0]));
+            }
+
+            for(const s of rowSupplies){
+              supplies.add(s);
+              entries.push({supply: s, month: churnMonth || null});
+            }
+          }
+          if(supplies.size === 0){
+            const sample = hdr.slice(0, 12).map(h => h || '∅').join(' | ');
+            logCheck(`⚠️ ${file.name}: δεν εντοπίστηκαν αρ. παροχής<br><span style="opacity:.7">Πρώτες στήλες: ${sample}</span>`, 'warn');
+          } else {
+            const detected = cSupplyDirect >= 0 ? `"${hdr[cSupplyDirect]}"`
+                           : (elCol >= 0 || gasCol >= 0) ? 'στήλες ΡΕΥΜΑ/ΑΕΡΙΟ'
+                           : 'subject parsing';
+            const monthsFound = [...new Set(entries.map(e => e.month).filter(Boolean))];
+            C.clawbackFiles.push({name: file.name, supplies, entries, count: supplies.size});
+            const monthTag = monthsFound.length > 0
+              ? `, churn months: ${monthsFound.join(' / ')}`
+              : (cChurn < 0 ? ', χωρίς στήλη Churn Month' : ', χωρίς churn months');
+            logCheck(`<span style="color:#ef4444">🔄 ${file.name}</span> — ${supplies.size} clawback παροχές <span style="opacity:.7">(${detected}${monthTag})</span>`);
+          }
+        }
+      } catch(err){
+        logCheck(`❌ ${file.name}: ${err.message}`, 'err');
+      }
+      if(--pending === 0){
+        renderClawbackTags();
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  }
+  inp.value = '';
+}
+
+function renderClawbackTags(){
+  document.getElementById('tagsClawCheck').innerHTML = C.clawbackFiles.map((f, i) =>
+    `<div class="file-tag" style="border-color:#ef4444;background:#1c0a0a;color:#fca5a5">${f.name} <span class="badge" style="background:#ef4444">${f.count}</span><button class="rm" onclick="removeClawbackFile(${i})" title="Αφαίρεση" style="color:#fca5a5">✕</button></div>`
+  ).join('');
+}
+
+function removeClawbackFile(idx){
+  C.clawbackFiles.splice(idx, 1);
+  renderClawbackTags();
+}
+
+// ─── RUN UNPAID CHECK ────────────────────────────────────────
+// Merges:
+//   • Daily Report CLOSED rows (C.closedRows)
+//   • LUMINARITY rows of every status (S.lumRows) — when loaded
+// Dedupes by supply, marking source as DAILY / LUMIN / BOTH.
+// Prefers LUMINARITY's status when both exist, since it has richer
+// granular states (ΠΡΟΣ ΥΠΟΓΡΑΦΗ, ΑΚΥΡΩΘΗΚΕ, κ.λπ.).
+function runCheck(){
+  document.getElementById('logCheck').innerHTML = '';
+  document.getElementById('logCheck').classList.add('on');
+
+  // Collect paid supplies across all fee files, tagging each entry with the
+  // month the file represents (parsed from the filename).
+  // Map<supply, [{file, month}]>
+  C.paidSupplies = new Map();
+  for(const f of C.amoivesFiles){
+    for(const s of f.supplies){
+      if(!C.paidSupplies.has(s)) C.paidSupplies.set(s, []);
+      C.paidSupplies.get(s).push({file: f.name, month: f.month || null});
+    }
+  }
+  // Collect clawback supplies — each entry has the row's Churn Month.
+  // Map<supply, [{file, month}]>
+  C.clawbackSupplies = new Map();
+  for(const f of C.clawbackFiles){
+    const arr = f.entries || [...f.supplies].map(s => ({supply: s, month: null}));
+    for(const e of arr){
+      if(!C.clawbackSupplies.has(e.supply)) C.clawbackSupplies.set(e.supply, []);
+      C.clawbackSupplies.get(e.supply).push({file: f.name, month: e.month || null});
+    }
+  }
+
+  // Build a unified candidate map keyed by supply.
+  // Rule (per user): "πάντα μοναδική φορά την κάθε παροχή με στατους
+  // την πιο πρόσφατη ημερομηνία". So for each supply we keep ONE row,
+  // and whichever source has the more recent timestamp dictates the status.
+  // Other descriptive fields fill in from whatever has them.
+  const merged = new Map();
+  const rowTs = (r) => {
+    if(r.closedYear) return new Date(r.closedYear, (r.closedMonth || 1) - 1, r.closedDay || 1).getTime();
+    const p = parseDate(r.date);
+    if(p) return new Date(p.year, (p.month || 1) - 1, p.day || 1).getTime();
+    return 0;
+  };
+  const fillIfEmpty = (target, key, value) => {
+    if((target[key] == null || target[key] === '') && value != null && value !== '') target[key] = value;
+  };
+
+  function ingest(r, src){
+    if(!r.supply) return;
+    const cur = merged.get(r.supply);
+    if(!cur){
+      merged.set(r.supply, {
+        row: {
+          date:        r.date || '',
+          name:        String(r.name || '').trim(),
+          afm:         r.afm || '',
+          type:        r.type || '',
+          supply:      r.supply,
+          dealer:      String(r.dealer || '').trim(),
+          master:      r.master || '',
+          appType:     String(r.appType || '').trim(),
+          status:      String(r.status || '').trim().toUpperCase(),
+          program:     String(r.program || '').trim(),
+          month:       r.month || '',
+          ticket:      r.ticket || '',
+          closedYear:  r.closedYear  ?? null,
+          closedMonth: r.closedMonth ?? null,
+          closedDay:   r.closedDay   ?? null,
+          _ts:         rowTs(r),
+        },
+        sources: new Set([src]),
+      });
+      return;
+    }
+    cur.sources.add(src);
+    const incomingTs = rowTs(r);
+    if(incomingTs > (cur.row._ts || 0)){
+      // Newer observation — its status & dates win
+      const newStatus = String(r.status || '').trim().toUpperCase();
+      if(newStatus) cur.row.status = newStatus;
+      if(r.month)      cur.row.month       = r.month;
+      if(r.date)       cur.row.date        = r.date;
+      if(r.closedYear) cur.row.closedYear  = r.closedYear;
+      if(r.closedMonth)cur.row.closedMonth = r.closedMonth;
+      if(r.closedDay)  cur.row.closedDay   = r.closedDay;
+      cur.row._ts = incomingTs;
+    }
+    // Descriptive fields: fill in if missing from previous row
+    fillIfEmpty(cur.row, 'name',    String(r.name || '').trim());
+    fillIfEmpty(cur.row, 'afm',     r.afm);
+    fillIfEmpty(cur.row, 'type',    r.type);
+    fillIfEmpty(cur.row, 'dealer',  String(r.dealer || '').trim());
+    fillIfEmpty(cur.row, 'master',  r.master);
+    fillIfEmpty(cur.row, 'appType', String(r.appType || '').trim());
+    fillIfEmpty(cur.row, 'program', String(r.program || '').trim());
+  }
+
+  // Daily Report rows first (have authoritative closed-date), then LUMIN.
+  for(const r of C.closedRows) ingest(r, 'DAILY');
+  for(const r of S.lumRows)    ingest(r, 'LUMIN');
+
+  // Build results with paid + clawback info, applying same-month cancellation:
+  //   • Fee in month X + clawback in month X → that month's payment is cancelled.
+  //   • Fee in month A + clawback in month B (A≠B) → fee A "stands"; clawback B
+  //     is informational (deducted from B's settlement, not from A).
+  // A supply is considered "paid" if at least one fee month survives all the
+  // same-month clawbacks. Otherwise (or if there are no fees at all and only
+  // clawbacks), it counts as clawback. With no records at all → unpaid.
+  C.results = [...merged.values()].map(({row, sources}) => {
+    const source       = sources.size > 1 ? 'BOTH' : [...sources][0];
+    const paidEntries  = C.paidSupplies.get(row.supply)     || [];
+    const clawEntries  = C.clawbackSupplies.get(row.supply) || [];
+
+    const clawMonths   = new Set(clawEntries.map(e => e.month).filter(Boolean));
+    const feeMonths    = [...new Set(paidEntries.map(e => e.month).filter(Boolean))];
+    const survivedMths = feeMonths.filter(m => !clawMonths.has(m));
+    const cancelledMths= feeMonths.filter(m =>  clawMonths.has(m));
+
+    // If we have fee entries with NO file-month detected, treat them as
+    // un-cancellable (we can't pair them with a churn month). They count
+    // as "paid" unless every fee entry was in a known cancelled month.
+    const feeWithoutMonth = paidEntries.some(e => !e.month);
+
+    let state;
+    if(paidEntries.length === 0 && clawEntries.length === 0){
+      state = 'unpaid';
+    } else if(survivedMths.length > 0 || feeWithoutMonth){
+      state = 'paid';                  // some payment retained
+    } else if(paidEntries.length > 0 && cancelledMths.length === paidEntries.length){
+      state = 'clawback';              // all fees cancelled by same-month clawbacks
+    } else if(paidEntries.length === 0){
+      state = 'clawback';              // only clawback (no fees ever)
+    } else {
+      state = 'clawback';              // safety net — fees + clawbacks but no surviving month
+    }
+
+    return {
+      row, source,
+      paid:        state === 'paid',
+      clawback:    state === 'clawback',
+      paidIn:      paidEntries.map(e => e.file),
+      clawbackIn:  clawEntries.map(e => e.file),
+      paidMonths:    feeMonths,
+      clawMonths:    [...clawMonths],
+      survivedMths,
+      cancelledMths,
+    };
+  });
+
+  const cb         = C.results.filter(x => x.clawback).length;
+  const paidNetto  = C.results.filter(x => x.paid && !x.clawback).length;
+  const unpaidReal = C.results.filter(x => !x.paid && !x.clawback).length;
+  logCheck(`<span class="ok">✓ Έλεγχος ολοκληρώθηκε:</span> ${C.results.length} αιτήσεις (Daily: ${C.closedRows.length}, LUMINARITY: ${S.lumRows.length}) — <strong>${unpaidReal} ΑΠΛΗΡΩΤΕΣ</strong>, ${paidNetto} πληρωμένες${cb > 0 ? `, <span style="color:#fb923c">🔄 ${cb} clawback</span>` : ''}`);
+
+  // Static labels (KPI numbers are recomputed by renderUnpaid below)
+  document.getElementById('kClosedSub').textContent  =
+    S.lumRows.length > 0 && C.closedRows.length > 0 ? 'Daily + LUMINARITY (ενοποίηση)'
+    : S.lumRows.length > 0 ? 'από LUMINARITY'
+    : 'CLOSED από Daily Report';
+  document.getElementById('kAmFiles').textContent    = C.amoivesFiles.length + (C.clawbackFiles.length > 0 ? ' + ' + C.clawbackFiles.length : '');
+  document.getElementById('kAmFilesSub').textContent = `${C.paidSupplies.size} πληρ.${C.clawbackFiles.length > 0 ? `, ${C.clawbackSupplies.size} clawb.` : ''}`;
+
+  // Master + Dealer filters
+  const masters = [...new Set(C.results.map(x => x.row.master).filter(Boolean))].sort();
+  document.getElementById('fCheckMaster').innerHTML = '<option value="">🏢 Όλοι Master Dealers</option>' +
+    masters.map(m => `<option value="${m}">${m}</option>`).join('');
+
+  populateDealerFilter('');  // all dealers initially
+
+  // Month chips — sorted chronologically
+  const months = [...new Set(C.results.map(x => x.row.month).filter(Boolean))]
+                 .sort(compareMonthLabels);
+  populateMonthChips(months);
+
+  // Dynamic status list: count per status, sorted by count desc
+  const statusCounts = new Map();
+  for(const x of C.results){
+    const s = x.row.status || '(κενό)';
+    statusCounts.set(s, (statusCounts.get(s) || 0) + 1);
+  }
+  const statusEntries = [...statusCounts.entries()].sort((a, b) => b[1] - a[1]);
+  document.getElementById('fCheckStatusVal').innerHTML = '<option value="">Όλα τα Status</option>' +
+    statusEntries.map(([s, n]) => `<option value="${s}">${s} (${n})</option>`).join('');
+
+  document.getElementById('kpiCheckGrid').style.display = '';
+  document.getElementById('checkToolbar').style.display = '';
+  document.getElementById('checkWrap').style.display = '';
+
+  renderUnpaid();
+}
+
+// Populate the dealer filter, optionally limited to dealers under a given master
+function populateDealerFilter(master){
+  const dealers = [...new Set(
+    C.results
+      .filter(x => !master || x.row.master === master)
+      .map(x => x.row.dealer)
+      .filter(Boolean)
+  )].sort();
+  const sel = document.getElementById('fCheckDealer');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">👤 Όλοι Συνεργάτες</option>' +
+    dealers.map(d => `<option value="${d}">${d}</option>`).join('');
+  // Preserve selection if still valid
+  if(prev && dealers.includes(prev)) sel.value = prev;
+  else sel.value = '';
+}
+
+function onMasterFilterChange(){
+  const master = document.getElementById('fCheckMaster').value;
+  populateDealerFilter(master);
+  renderUnpaid();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// AD-HOC LIST CHECKERS
+// ════════════════════════════════════════════════════════════════════
+// Two extra independent inputs in the Έλεγχος view:
+//   • C.adhocFiles  — claimed-unpaid lists from dealers (ΑΠΛΗΡΩΤΕΣ ΜΕΧΡΙ X)
+//   • C.sentFiles   — files the user has sent to dealers
+// Both share parse + column-picker logic. Each loaded file extracts a
+// Set of supply numbers from one column. If the supply column can't be
+// auto-detected, the file is "pending" and a dropdown lets the user pick.
+async function loadAdhocFiles(inp, target){
+  const files = Array.from(inp.files);
+  if(!files.length) return;
+  for(const file of files){
+    try{
+      await processAdhocFile(file, target);
+    } catch(err){
+      logCheck(`❌ ${file.name}: ${err.message}`, 'err');
+    }
+  }
+  inp.value = '';
+  renderAdhocSection();
+}
+
+function processAdhocFile(file, target){
+  return new Promise((resolve, reject) => {
+    const rd = new FileReader();
+    rd.onload = e => {
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+        let allRows = null;
+        for(const sh of wb.SheetNames){
+          const raw = XLSX.utils.sheet_to_json(wb.Sheets[sh], {header:1, defval:null, raw:false});
+          if(!allRows) allRows = raw;
+          else for(let i = 1; i < raw.length; i++) allRows.push(raw[i]);
+        }
+        if(!allRows || allRows.length < 2) throw new Error('Κενό αρχείο');
+        const hdr = allRows[0].map(h => String(h ?? '').trim());
+        const rows = allRows.slice(1);
+
+        const colIdx = autoDetectAdhocSupplyCol(hdr, rows);
+        if(colIdx >= 0){
+          const supplies = extractAdhocSupplies(rows, colIdx);
+          addAdhocFile(target, file.name, hdr[colIdx] || `(στήλη ${colIdx+1})`, supplies);
+          logCheck(`<span class="ok">✓ ${file.name}</span> — ${supplies.size} παροχές <span style="opacity:.7">(στήλη: "${hdr[colIdx] || colIdx+1}")</span>`);
+        } else {
+          // Needs user intervention
+          C.adhocPending[target].push({fileName: file.name, hdr, rows});
+          logCheck(`⚠️ ${file.name}: στήλη παροχής δεν εντοπίστηκε αυτόματα — διάλεξε χειροκίνητα`, 'warn');
+        }
+        resolve();
+      } catch(err){
+        reject(err);
+      }
+    };
+    rd.onerror = () => reject(new Error('Σφάλμα ανάγνωσης'));
+    rd.readAsArrayBuffer(file);
+  });
+}
+
+// Multi-strategy auto-detection: header keywords first, then numeric heuristic.
+function autoDetectAdhocSupplyCol(hdr, rows){
+  // 1. Standard supply column detector (handles ΡΕΥΜΑ/ΑΕΡΙΟ/ΦΑ + English)
+  const {elCol, gasCol} = detectSupplyCols(hdr);
+  if(elCol  >= 0) return elCol;
+  if(gasCol >= 0) return gasCol;
+  // 2. Generic Greek "παροχ" header
+  let c = findCol(hdr, 'παροχή', 'παροχη', 'αρ. παροχ', 'αριθμ παροχ', 'αριθμός παροχ');
+  if(c >= 0){
+    const u = String(hdr[c] || '').toLowerCase();
+    if(!u.includes('κατηγορ')) return c;   // skip ΚΑΤΗΓΟΡΙΑ ΠΑΡΟΧΗΣ
+  }
+  // 3. Numeric heuristic — find a column whose values are mostly 7+ digit numbers
+  const sample = rows.slice(0, 200);
+  let best = -1, bestRatio = 0;
+  for(let col = 0; col < hdr.length; col++){
+    let numCount = 0, total = 0;
+    for(const r of sample){
+      const v = norm(r ? r[col] : null);
+      if(v) total++;
+      if(/^\d{7,}$/.test(v)) numCount++;
+    }
+    if(total >= 5){
+      const ratio = numCount / total;
+      if(ratio > 0.7 && ratio > bestRatio){ best = col; bestRatio = ratio; }
+    }
+  }
+  return best;
+}
+
+function extractAdhocSupplies(rows, colIdx){
+  const set = new Set();
+  for(const r of rows){
+    if(!r) continue;
+    const v = norm(r[colIdx]);
+    if(v && /^\d{7,}$/.test(v)) set.add(v);
+  }
+  return set;
+}
+
+function addAdhocFile(target, fileName, columnHeader, supplies){
+  const list = target === 'adhoc' ? C.adhocFiles : C.sentFiles;
+  const data = {name: fileName, columnHeader, supplies, count: supplies.size};
+  const existing = list.findIndex(f => f.name === fileName);
+  if(existing >= 0) list.splice(existing, 1, data);
+  else list.push(data);
+}
+
+function pickAdhocColumn(target, idx, columnIdx){
+  if(columnIdx === '' || columnIdx == null) return;
+  const ci = parseInt(columnIdx, 10);
+  const pending = C.adhocPending[target][idx];
+  if(!pending) return;
+  const supplies = extractAdhocSupplies(pending.rows, ci);
+  addAdhocFile(target, pending.fileName, pending.hdr[ci] || `(στήλη ${ci+1})`, supplies);
+  C.adhocPending[target].splice(idx, 1);
+  logCheck(`<span class="ok">✓ ${pending.fileName}</span> — ${supplies.size} παροχές (επιλέχθηκε στήλη: "${pending.hdr[ci] || ci+1}")`);
+  renderAdhocSection();
+}
+
+function removeAdhocFile(target, idx){
+  const list = target === 'adhoc' ? C.adhocFiles : C.sentFiles;
+  list.splice(idx, 1);
+  renderAdhocSection();
+}
+
+function removeAdhocPending(target, idx){
+  C.adhocPending[target].splice(idx, 1);
+  renderAdhocSection();
+}
+
+function renderAdhocSection(){
+  // Loaded file chips
+  for(const target of ['adhoc', 'sent']){
+    const list = target === 'adhoc' ? C.adhocFiles : C.sentFiles;
+    const wrap = document.getElementById(target === 'adhoc' ? 'tagsAdhoc' : 'tagsSent');
+    if(!wrap) continue;
+    wrap.innerHTML = list.map((f, i) =>
+      `<div class="file-tag" title="Στήλη: ${f.columnHeader}">${f.name} <span class="badge">${f.count}</span><button class="rm" onclick="removeAdhocFile('${target}',${i})">✕</button></div>`
+    ).join('');
+  }
+  // Pending pickers
+  for(const target of ['adhoc', 'sent']){
+    const pending = C.adhocPending[target] || [];
+    const picker = document.getElementById(target === 'adhoc' ? 'pickerAdhoc' : 'pickerSent');
+    if(!picker) continue;
+    picker.innerHTML = pending.map((p, idx) => `
+      <div style="background:var(--bg);border:1px solid var(--yellow);border-radius:8px;padding:12px;margin-top:10px">
+        <div style="color:var(--yellow);font-size:12px;font-weight:700;margin-bottom:8px">⚠️ ${p.fileName}: επέλεξε στήλη παροχών</div>
+        <select onchange="pickAdhocColumn('${target}',${idx},this.value)" style="width:calc(100% - 90px);padding:6px 8px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;cursor:pointer">
+          <option value="">— επέλεξε στήλη —</option>
+          ${p.hdr.map((h, i) => `<option value="${i}">${h || '(στήλη ' + (i+1) + ')'}</option>`).join('')}
+        </select>
+        <button class="btn btn-outline" onclick="removeAdhocPending('${target}',${idx})" style="margin-left:8px;font-size:11px;padding:5px 12px">✕ Άκυρο</button>
+      </div>
+    `).join('');
+  }
+  // Recompute results
+  renderAdhocResults();
+}
+
+function getAdhocResults(){
+  const adhocSet = new Set();
+  for(const f of C.adhocFiles) for(const s of f.supplies) adhocSet.add(s);
+  if(adhocSet.size === 0) return [];
+
+  const sentSet = new Set();
+  for(const f of C.sentFiles) for(const s of f.supplies) sentSet.add(s);
+
+  // Build supply → meta map (latest from LUMIN, fallback to Daily)
+  const meta = new Map();
+  for(const r of S.lumRows)    if(r.supply && !meta.has(r.supply)) meta.set(r.supply, r);
+  for(const r of C.closedRows) if(r.supply && !meta.has(r.supply)) meta.set(r.supply, r);
+
+  return [...adhocSet].map(supply => {
+    const m = meta.get(supply) || {};
+
+    const paidIn = [];
+    for(const f of C.amoivesFiles) if(f.supplies.has(supply)) paidIn.push({file: f.name, month: f.month || null});
+
+    const clawbackIn = [];
+    for(const f of C.clawbackFiles){
+      if(f.supplies.has(supply)){
+        const entry = (f.entries || []).find(e => e.supply === supply);
+        clawbackIn.push({file: f.name, month: entry && entry.month ? entry.month : null});
+      }
+    }
+
+    const clawMonths = new Set(clawbackIn.map(e => e.month).filter(Boolean));
+    const feeMonths = paidIn.map(e => e.month).filter(Boolean);
+    const survived  = feeMonths.filter(m => !clawMonths.has(m));
+    const cancelled = feeMonths.filter(m =>  clawMonths.has(m));
+    const feeNoMonth = paidIn.some(e => !e.month);
+
+    let payState;
+    if(paidIn.length === 0 && clawbackIn.length === 0) payState = 'unpaid';
+    else if(survived.length > 0 || feeNoMonth)         payState = 'paid';
+    else                                                payState = 'clawback';
+
+    const sentInFiles = C.sentFiles.filter(f => f.supplies.has(supply)).map(f => f.name);
+
+    return {
+      supply,
+      type:    m.type    || '',
+      name:    m.name    || '',
+      afm:     m.afm     || '',
+      dealer:  m.dealer  || '',
+      master:  m.master  || '',
+      status:  m.status  || '',
+      payState,
+      paidIn, clawbackIn,
+      paidMonths: feeMonths,
+      clawMonths: [...clawMonths],
+      cancelledMths: cancelled,
+      sent:    sentInFiles.length > 0,
+      sentIn:  sentInFiles,
+      feeType: getFeeAppType(supply),    // PORTABILITY / UPGRADE / κλπ.
+      feeProg: getFeeProgram(supply),    // MY HOME ENTER / κλπ.
+    };
+  });
+}
+
+function renderAdhocResults(){
+  const wrap = document.getElementById('adhocResults');
+  if(!wrap) return;
+  let results = getAdhocResults();
+  if(results.length === 0){ wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  // Apply local filters
+  const q   = (document.getElementById('adhocSearch').value || '').toLowerCase();
+  const fp  = document.getElementById('fAdhocPay').value;
+  const fs  = document.getElementById('fAdhocSent').value;
+
+  results = results.filter(r => {
+    if(fp && r.payState !== fp) return false;
+    if(fs === 'yes' && !r.sent) return false;
+    if(fs === 'no'  &&  r.sent) return false;
+    if(q && !(
+      r.supply.includes(q) ||
+      (r.dealer || '').toLowerCase().includes(q) ||
+      (r.master || '').toLowerCase().includes(q) ||
+      String(r.name || '').toLowerCase().includes(q) ||
+      String(r.afm  || '').includes(q)
+    )) return false;
+    return true;
+  });
+
+  // Sort: unpaid first (action needed), clawback, paid
+  const stateRank = (s) => s === 'unpaid' ? 0 : s === 'clawback' ? 1 : 2;
+  results.sort((a, b) => stateRank(a.payState) - stateRank(b.payState));
+
+  document.getElementById('adhocCount').textContent = `${results.length} παροχές`;
+
+  const showSent = C.sentFiles.length > 0;
+  document.getElementById('adhocHead').innerHTML = `
+    <th>Αρ. Παροχής</th>
+    <th>Τύπος</th>
+    <th>Συνεργάτης</th>
+    <th>Ονοματεπώνυμο</th>
+    <th>Status</th>
+    <th>💶 Πληρώθηκε σε εμένα</th>
+    <th>Πληρώθηκε ως</th>
+    ${showSent ? '<th>📨 Στάλθηκε στον συνεργάτη</th>' : ''}
+    <th>Συμπέρασμα</th>
+  `;
+
+  document.getElementById('adhocBody').innerHTML = results.slice(0, 1000).map(r => {
+    let payBadge;
+    if(r.payState === 'paid'){
+      const monthsTxt = r.paidMonths.length ? r.paidMonths.join(', ') : '–';
+      const tip = `Μήνες: ${monthsTxt} | ${r.paidIn.map(e => e.file).join(', ')}`.replace(/"/g, '&quot;');
+      payBadge = `<span class="bdg bdg-green" title="${tip}">✓ ${r.paidMonths.length || r.paidIn.length} αρχ.</span>`;
+    } else if(r.payState === 'clawback'){
+      const tip = `Ακυρώθηκαν: ${r.cancelledMths.join(', ') || '–'} | ${r.clawbackIn.map(e => e.file).join(', ')}`.replace(/"/g, '&quot;');
+      payBadge = `<span class="bdg" style="background:#7f1d1d;color:#fca5a5;font-weight:700" title="${tip}">🔄 CLAWBACK</span>`;
+    } else {
+      payBadge = `<span class="bdg bdg-red">✗ ΟΧΙ</span>`;
+    }
+
+    let sentCell = '';
+    if(showSent){
+      sentCell = r.sent
+        ? `<td><span class="bdg bdg-blue" title="${r.sentIn.join(', ').replace(/"/g, '&quot;')}">✓ ${r.sentIn.length}</span></td>`
+        : `<td><span class="bdg bdg-yellow">⚠️ ΟΧΙ</span></td>`;
+    }
+
+    let conclusion;
+    if(r.payState === 'paid'){
+      conclusion = showSent && !r.sent ? '⚠️ Πληρώθηκε αλλά ΔΕΝ τη στείλατε στον συνεργάτη' : '✓ Πληρωμένη';
+    } else if(r.payState === 'clawback'){
+      conclusion = '🔄 Ακυρώθηκε (επιστροφή αμοιβής)';
+    } else {
+      if(showSent && r.sent) conclusion = '🔵 Στάλθηκε στον συνεργάτη αλλά δεν πληρώθηκε ακόμα';
+      else if(showSent)      conclusion = '✗ ΟΥΤΕ στάλθηκε ΟΥΤΕ πληρώθηκε';
+      else                    conclusion = '✗ Δεν εντοπίστηκε σε αρχείο αμοιβών';
+    }
+
+    const rowBg =
+      r.payState === 'paid'     ? ' style="background:#0d2818"'
+      : r.payState === 'clawback'? ' style="background:#3a0a0a"'
+      : '';
+
+    const feeTypeBadge = r.feeType
+      ? `<span class="bdg bdg-blue" title="${r.feeProg ? 'Πρόγραμμα: ' + r.feeProg.replace(/"/g, '&quot;') : ''}">${r.feeType}</span>`
+      : '<span style="color:var(--muted);font-size:12px">–</span>';
+
+    return `<tr${rowBg}>
+      <td><code style="color:var(--accent);font-size:12px">${r.supply}</code></td>
+      <td>${r.type ? `<span class="bdg ${r.type === 'ΡΕΥΜΑ' ? 'bdg-blue' : 'bdg-purple'}">${r.type}</span>` : '–'}</td>
+      <td><strong>${r.dealer || '–'}</strong></td>
+      <td style="font-size:12px">${r.name || ''}</td>
+      <td>${r.status ? `<span class="bdg ${statusBadgeClass(r.status)}">${r.status}</span>` : '–'}</td>
+      <td>${payBadge}</td>
+      <td>${feeTypeBadge}</td>
+      ${sentCell}
+      <td style="font-size:12px">${conclusion}</td>
+    </tr>`;
+  }).join('') + (results.length > 1000
+    ? `<tr><td colspan="${showSent ? 9 : 8}" style="text-align:center;color:var(--muted);padding:14px">… και άλλες ${results.length - 1000} (κάντε εξαγωγή σε Excel για όλες)</td></tr>`
+    : '');
+}
+
+async function exportAdhocResults(){
+  const results = getAdhocResults();
+  if(!results.length){ alert('Δεν υπάρχουν εγγραφές για εξαγωγή.'); return; }
+  const showSent = C.sentFiles.length > 0;
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'LUMINARITY Dashboard';
+  const ws = wb.addWorksheet('ΕΞΤΡΑ ΕΛΕΓΧΟΣ', {views:[{state:'frozen', ySplit:1}]});
+  ws.columns = [
+    {header:'ΑΡ. ΠΑΡΟΧΗΣ',         key:'supply',    width:18},
+    {header:'ΤΥΠΟΣ',               key:'type',      width:12},
+    {header:'MASTER',              key:'master',    width:14},
+    {header:'ΣΥΝΕΡΓΑΤΗΣ',          key:'dealer',    width:28},
+    {header:'ΟΝΟΜΑΤΕΠΩΝΥΜΟ',       key:'name',      width:30},
+    {header:'ΑΦΜ',                 key:'afm',       width:13},
+    {header:'STATUS',              key:'status',    width:22},
+    {header:'ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ',  key:'state',     width:16},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΩΣ',        key:'feeType',   width:18},
+    {header:'ΠΡΟΓΡΑΜΜΑ ΑΜΟΙΒΗΣ',   key:'feeProg',   width:22},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΜΗΝΕΣ',    key:'paidMo',    width:24},
+    {header:'CLAWBACK ΜΗΝΕΣ',      key:'clawMo',    width:24},
+    {header:'ΑΡΧΕΙΑ ΑΜΟΙΒΩΝ',     key:'paidIn',    width:36},
+    ...(showSent ? [
+      {header:'ΣΤΑΛΘΗΚΕ;',         key:'sent',      width:14},
+      {header:'ΑΡΧΕΙΑ ΣΤΟΛΗΣ',    key:'sentIn',    width:36},
+    ] : []),
+    {header:'ΣΥΜΠΕΡΑΣΜΑ',          key:'conclusion',width:46},
+  ];
+  ws.getRow(1).height = 22;
+  ws.getRow(1).eachCell(cell => {
+    cell.font = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
+    cell.alignment = {vertical:'middle', horizontal:'center'};
+    cell.border = {bottom:{style:'medium', color:{argb:'FF38bdf8'}}};
+  });
+
+  const stateRank = (s) => s === 'unpaid' ? 0 : s === 'clawback' ? 1 : 2;
+  const sorted = [...results].sort((a, b) => stateRank(a.payState) - stateRank(b.payState));
+
+  sorted.forEach((r, i) => {
+    const stateLbl = r.payState === 'paid' ? 'ΠΛΗΡΩΘΗΚΕ' : r.payState === 'clawback' ? 'CLAWBACK' : 'ΟΧΙ';
+    let conclusion;
+    if(r.payState === 'paid'){
+      conclusion = showSent && !r.sent ? 'Πληρώθηκε αλλά ΔΕΝ στάλθηκε στον συνεργάτη' : 'Πληρωμένη';
+    } else if(r.payState === 'clawback'){
+      conclusion = 'Ακυρώθηκε (επιστροφή αμοιβής)';
+    } else {
+      if(showSent && r.sent) conclusion = 'Στάλθηκε στον συνεργάτη αλλά δεν πληρώθηκε';
+      else if(showSent)      conclusion = 'ΟΥΤΕ στάλθηκε ΟΥΤΕ πληρώθηκε';
+      else                    conclusion = 'Δεν εντοπίστηκε σε αρχείο αμοιβών';
+    }
+
+    const rowData = {
+      supply:     r.supply,
+      type:       r.type,
+      master:     r.master,
+      dealer:     r.dealer,
+      name:       r.name,
+      afm:        r.afm,
+      status:     r.status,
+      state:      stateLbl,
+      feeType:    r.feeType || '',
+      feeProg:    r.feeProg || '',
+      paidMo:     (r.paidMonths || []).join(' • '),
+      clawMo:     (r.clawMonths || []).join(' • '),
+      paidIn:     r.paidIn.map(e => e.file).join(' • '),
+      conclusion,
+    };
+    if(showSent){
+      rowData.sent   = r.sent ? 'ΝΑΙ' : 'ΟΧΙ';
+      rowData.sentIn = r.sentIn.join(' • ');
+    }
+
+    const row = ws.addRow(rowData);
+    row.height = 16;
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.alignment = {vertical:'middle'};
+      if(r.payState === 'clawback'){
+        cell.font = {bold:true, color:{argb:'FFB91C1C'}, size:10, name:'Calibri'};
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEE2E2'}};
+      } else if(r.payState === 'paid'){
+        cell.font = {bold:true, color:{argb:'FF166534'}, size:10, name:'Calibri'};
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFDCFCE7'}};
+      } else {
+        cell.font = {size:10, name:'Calibri'};
+        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      }
+    });
+    if(showSent && !r.sent && r.payState !== 'unpaid'){
+      // Highlight "paid but not sent" rows in yellow on the sent column
+      const c = row.getCell('sent');
+      c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEF3C7'}};
+      c.font = {bold:true, color:{argb:'FFB45309'}, size:10, name:'Calibri'};
+    }
+  });
+
+  const dt = new Date().toLocaleDateString('el-GR').replace(/\//g, '-');
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `ΕΞΤΡΑ_ΕΛΕΓΧΟΣ_${dt}.xlsx`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── MONTH CHIPS ─────────────────────────────────────────────
+function populateMonthChips(months){
+  C.activeMonths = new Set(months);
+  const wrap = document.getElementById('monthChips');
+  wrap.innerHTML = months.map(m =>
+    `<button class="month-chip on" data-month="${String(m).replace(/"/g,'&quot;')}" onclick="toggleMonthChip(this)">${m}</button>`
+  ).join('');
+  document.getElementById('monthChipsWrap').style.display = months.length > 0 ? 'flex' : 'none';
+}
+
+function toggleMonthChip(btn){
+  const m = btn.dataset.month;
+  if(C.activeMonths.has(m)){ C.activeMonths.delete(m); btn.classList.remove('on'); }
+  else                     { C.activeMonths.add(m);    btn.classList.add('on'); }
+  renderUnpaid();
+}
+
+function setAllMonths(active){
+  document.querySelectorAll('#monthChips .month-chip').forEach(c => {
+    if(active){ c.classList.add('on');    C.activeMonths.add(c.dataset.month); }
+    else      { c.classList.remove('on'); C.activeMonths.delete(c.dataset.month); }
+  });
+  renderUnpaid();
+}
+
+// Common filter logic shared between getKpiFiltered (no payment filter)
+// and getCheckFiltered (with payment filter applied).
+function applyCheckFilters(rows, includePayment){
+  const q   = (document.getElementById('checkSearch').value || '').toLowerCase();
+  const ft  = document.getElementById('fCheckType').value;
+  const fma = document.getElementById('fCheckMaster').value;
+  const fd  = document.getElementById('fCheckDealer').value;
+  const fsr = document.getElementById('fCheckSource').value;
+  const fsv = document.getElementById('fCheckStatusVal').value;
+  const fp  = document.getElementById('fCheckPayment').value || 'unpaid';
+  const monthsActive = C.activeMonths;
+
+  return rows.filter(x => {
+    const r = x.row;
+    if(includePayment){
+      // Categorisation: clawback always wins (a refunded payment is its own
+      // class), then paid, then unpaid. So "Απλήρωτες" excludes clawback —
+      // those aren't really unpaid, they're refunds.
+      if(fp === 'unpaid'       && (x.paid || x.clawback))  return false;
+      if(fp === 'paid'         && (!x.paid || x.clawback)) return false;
+      if(fp === 'clawback'     && !x.clawback)             return false;
+      if(fp === 'not_clawback' && x.clawback)              return false;
+    }
+    if(ft  && r.type   !== ft)  return false;
+    if(fma && r.master !== fma) return false;
+    if(fd  && r.dealer !== fd)  return false;
+    if(fsr && x.source !== fsr) return false;
+    if(fsv && (r.status || '(κενό)') !== fsv) return false;
+    if(monthsActive && monthsActive.size > 0 && !monthsActive.has(r.month)) return false;
+    if(q && !(
+      (r.dealer || '').toLowerCase().includes(q) ||
+      (r.master || '').toLowerCase().includes(q) ||
+      r.supply.includes(q) ||
+      String(r.name || '').toLowerCase().includes(q) ||
+      String(r.afm  || '').includes(q)
+    )) return false;
+    return true;
+  });
+}
+
+function getKpiFiltered(){   return applyCheckFilters(C.results, false); }
+function getCheckFiltered(){ return applyCheckFilters(C.results, true);  }
+
+// Pick a badge style based on the status text
+function statusBadgeClass(status){
+  const s = String(status || '').toUpperCase();
+  if(s === 'CLOSED') return 'bdg-green';
+  if(s.includes('ΑΚΥΡ') || s.includes('CANCEL')) return 'bdg-red';
+  if(s.includes('ΥΠΟΓΡΑΦ') || s.includes('PENDING') || s.includes('ΕΚΚΡΕΜ') || s.includes('ΑΝΑΜΟΝ')) return 'bdg-yellow';
+  if(!s) return 'bdg-yellow';
+  return 'bdg-blue';
+}
+
+function sourceBadge(src){
+  if(src === 'BOTH')   return '<span class="bdg bdg-purple" title="Daily Report + LUMINARITY">🔗 BOTH</span>';
+  if(src === 'DAILY')  return '<span class="bdg bdg-blue"   title="Daily Report">📋 DAILY</span>';
+  if(src === 'LUMIN')  return '<span class="bdg bdg-yellow" title="LUMINARITY">📂 LUMIN</span>';
+  return '–';
+}
+
+function renderUnpaid(){
+  const kpiSet   = getKpiFiltered();          // respects every filter except payment
+  const filtered = getCheckFiltered();        // adds the payment filter on top
+  const body  = document.getElementById('checkBody');
+  const empty = document.getElementById('checkEmpty');
+  const wrap  = document.getElementById('checkWrap');
+
+  // KPIs reflect the current filter selection (including month exclusions),
+  // so the user sees the unpaid count for the months they kept selected.
+  // Categorisation matches the filter: clawback first, then paid, then unpaid.
+  const cb     = kpiSet.filter(x => x.clawback).length;
+  const paid   = kpiSet.filter(x => x.paid && !x.clawback).length;
+  const unpaid = kpiSet.filter(x => !x.paid && !x.clawback).length;
+  const tot    = Math.max(kpiSet.length, 1);
+  document.getElementById('kClosed').textContent      = kpiSet.length;
+  document.getElementById('kPaid').textContent        = paid;
+  document.getElementById('kPaidSub').textContent     = `${(paid/tot*100).toFixed(1)}%`;
+  document.getElementById('kUnpaid').textContent      = unpaid;
+  document.getElementById('kUnpaidSub').textContent   = `${(unpaid/tot*100).toFixed(1)}%`;
+  document.getElementById('kClawCheck').textContent   = cb;
+  document.getElementById('kClawCheckSub').textContent= cb > 0 ? `${(cb/tot*100).toFixed(1)}% επιστροφές` : (C.clawbackFiles.length === 0 ? 'Δεν φορτώθηκε' : '–');
+
+  document.getElementById('checkCount').textContent = `${filtered.length} εγγραφές`;
+
+  if(filtered.length === 0){
+    body.innerHTML = '';
+    wrap.style.display = 'none';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  wrap.style.display = '';
+
+  const slice = filtered.slice(0, 500);
+  const more  = filtered.length - slice.length;
+
+  body.innerHTML = slice.map(x => {
+    const r = x.row;
+    let payBadge;
+    if(x.clawback){
+      // Tooltip shows BOTH the cancelled months and the source files
+      const months = x.cancelledMths && x.cancelledMths.length
+        ? `Ακυρώθηκαν: ${x.cancelledMths.join(', ')}`
+        : (x.clawMonths.length ? `Clawback: ${x.clawMonths.join(', ')}` : '');
+      const tip = `${months}${months ? ' | ' : ''}${x.clawbackIn.join(', ')}`.replace(/"/g, '&quot;');
+      payBadge = `<span class="bdg" style="background:#7f1d1d;color:#fca5a5;font-weight:700" title="${tip}">🔄 CLAWBACK</span>`;
+    } else if(x.paid){
+      // Show how many fee months survived (after same-month cancellations)
+      const survivedTxt = x.survivedMths.length ? x.survivedMths.join(', ') : 'πληρωμένη';
+      const cancNote   = x.cancelledMths.length ? ` (ακυρώθηκαν: ${x.cancelledMths.join(', ')})` : '';
+      const tip = `${survivedTxt}${cancNote} | ${x.paidIn.join(', ')}`.replace(/"/g, '&quot;');
+      payBadge = `<span class="bdg bdg-green" title="${tip}">✓ ${x.paidIn.length} αρχ.</span>`;
+    } else {
+      payBadge = `<span class="bdg bdg-red">✗ ΑΠΛΗΡΩΤΗ</span>`;
+    }
+    // Color code per user spec: green = paid, red = clawback, empty = unpaid
+    const rowBg =
+      x.clawback ? ' style="background:#3a0a0a"'   // red tint (clawback / refund)
+      : x.paid    ? ' style="background:#0d2818"'  // green tint (paid)
+      : '';                                         // empty for truly unpaid
+    const stBadge = `<span class="bdg ${statusBadgeClass(r.status)}">${r.status || '–'}</span>`;
+    return `<tr${rowBg}>
+      <td><span class="bdg bdg-yellow" style="font-size:11px">${r.master || '–'}</span></td>
+      <td><strong>${r.dealer || '–'}</strong></td>
+      <td><code style="color:var(--accent);font-size:12px">${r.supply}</code></td>
+      <td><span class="bdg ${r.type === 'ΡΕΥΜΑ' ? 'bdg-blue' : 'bdg-purple'}">${r.type}</span></td>
+      <td>${r.name || ''}</td>
+      <td style="color:var(--muted);font-size:12px">${r.afm}</td>
+      <td style="font-size:12px">${r.appType || ''}</td>
+      <td style="color:var(--muted);font-size:12px">${r.program || ''}</td>
+      <td>${stBadge}</td>
+      <td>${sourceBadge(x.source)}</td>
+      <td style="font-size:12px;color:var(--muted)">${r.month}</td>
+      <td>${payBadge}</td>
+    </tr>`;
+  }).join('') + (more > 0
+    ? `<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:14px">… και άλλες ${more} εγγραφές (κάντε εξαγωγή σε Excel για όλες)</td></tr>`
+    : '');
+}
+
+function resetCheckFilters(){
+  document.getElementById('checkSearch').value = '';
+  document.getElementById('fCheckType').value = '';
+  document.getElementById('fCheckMaster').value = '';
+  document.getElementById('fCheckDealer').value = '';
+  document.getElementById('fCheckSource').value = '';
+  document.getElementById('fCheckStatusVal').value = '';
+  document.getElementById('fCheckPayment').value = 'unpaid';
+  populateDealerFilter('');
+  setAllMonths(true);  // calls renderUnpaid()
+}
+
+// ─── EXPORT UNPAID ───────────────────────────────────────────
+async function exportUnpaid(){
+  const filtered = getCheckFiltered();
+  if(!filtered.length){ alert('Δεν υπάρχουν εγγραφές για εξαγωγή.'); return; }
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'LUMINARITY Dashboard';
+
+  // The summary aggregates over the SAME filtered set the user is exporting,
+  // so month exclusions / master / status filters are reflected in the totals.
+  const headerStyle = (cell) => {
+    cell.font = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
+    cell.alignment = {vertical:'middle', horizontal:'center'};
+    cell.border = {bottom:{style:'medium', color:{argb:'FF38bdf8'}}};
+  };
+
+  // ── ΣΥΝΟΨΗ ΑΝΑ MASTER ──
+  const wsMas = wb.addWorksheet('ΣΥΝΟΨΗ ΑΝΑ MASTER', {views:[{state:'frozen', ySplit:1}]});
+  wsMas.columns = [
+    {header:'MASTER DEALER', key:'master',   width:18},
+    {header:'ΑΙΤΗΣΕΙΣ',      key:'tot',      width:12},
+    {header:'ΠΛΗΡΩΜΕΝΕΣ',    key:'paid',     width:14},
+    {header:'ΑΠΛΗΡΩΤΕΣ',     key:'unpaid',   width:14},
+    {header:'CLAWBACK',      key:'clawback', width:12},
+    {header:'% ΑΠΛΗΡΩΤΩΝ',   key:'pct',      width:14},
+    {header:'ΣΥΝΕΡΓΑΤΕΣ',    key:'dealers',  width:14},
+  ];
+  wsMas.getRow(1).height = 22;
+  wsMas.getRow(1).eachCell(headerStyle);
+
+  const byMaster = new Map();
+  for(const x of C.results){
+    const m = x.row.master || '(χωρίς master)';
+    if(!byMaster.has(m)) byMaster.set(m, {master:m, tot:0, paid:0, unpaid:0, clawback:0, dealers:new Set()});
+    const o = byMaster.get(m);
+    o.tot++;
+    if(x.clawback)        o.clawback++;
+    else if(x.paid)       o.paid++;
+    else                  o.unpaid++;
+    if(x.row.dealer) o.dealers.add(x.row.dealer);
+  }
+  [...byMaster.values()].sort((a,b) => b.unpaid - a.unpaid).forEach((r, i) => {
+    const row = wsMas.addRow({
+      master: r.master, tot: r.tot, paid: r.paid, unpaid: r.unpaid, clawback: r.clawback,
+      pct: r.tot > 0 ? (r.unpaid / r.tot * 100).toFixed(1) + '%' : '0%',
+      dealers: r.dealers.size,
+    });
+    row.height = 16;
+    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF0F7FF';
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      cell.alignment = {vertical:'middle'};
+      cell.font = {bold:true, size:10, name:'Calibri'};
+    });
+    if(r.unpaid > 0){
+      const c = row.getCell('unpaid');
+      c.font = {bold:true, color:{argb:'FFEF4444'}, size:10, name:'Calibri'};
+    }
+    if(r.clawback > 0){
+      const c = row.getCell('clawback');
+      c.font = {bold:true, color:{argb:'FFFB923C'}, size:10, name:'Calibri'};
+    }
+  });
+
+  // ── ΣΥΝΟΨΗ ΑΝΑ ΣΥΝΕΡΓΑΤΗ ──
+  const wsSum = wb.addWorksheet('ΣΥΝΟΨΗ ΑΝΑ ΣΥΝΕΡΓΑΤΗ', {views:[{state:'frozen', ySplit:1}]});
+  wsSum.columns = [
+    {header:'MASTER',       key:'master',   width:14},
+    {header:'ΣΥΝΕΡΓΑΤΗΣ',  key:'dealer',   width:30},
+    {header:'ΑΙΤΗΣΕΙΣ',     key:'tot',      width:12},
+    {header:'ΠΛΗΡΩΜΕΝΕΣ',  key:'paid',     width:14},
+    {header:'ΑΠΛΗΡΩΤΕΣ',   key:'unpaid',   width:14},
+    {header:'CLAWBACK',     key:'clawback', width:12},
+    {header:'% ΑΠΛΗΡΩΤΩΝ', key:'pct',      width:14},
+  ];
+  wsSum.getRow(1).height = 22;
+  wsSum.getRow(1).eachCell(headerStyle);
+
+  const byDealer = new Map();
+  for(const x of C.results){
+    const d = x.row.dealer || '(χωρίς)';
+    if(!byDealer.has(d)) byDealer.set(d, {dealer:d, master:x.row.master||'', tot:0, paid:0, unpaid:0, clawback:0});
+    const o = byDealer.get(d);
+    o.tot++;
+    if(x.clawback)  o.clawback++;
+    else if(x.paid) o.paid++;
+    else            o.unpaid++;
+  }
+  const sumEntries = [...byDealer.values()].sort((a,b) => {
+    const mc = (a.master || '').localeCompare(b.master || '');
+    if(mc !== 0) return mc;
+    return b.unpaid - a.unpaid;
+  });
+  sumEntries.forEach((r, i) => {
+    const row = wsSum.addRow({
+      master: r.master, dealer: r.dealer, tot: r.tot,
+      paid: r.paid, unpaid: r.unpaid, clawback: r.clawback,
+      pct: r.tot > 0 ? (r.unpaid / r.tot * 100).toFixed(1) + '%' : '0%',
+    });
+    row.height = 16;
+    const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF0F7FF';
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      cell.alignment = {vertical:'middle'};
+      cell.font = {size:10, name:'Calibri'};
+    });
+    if(r.unpaid > 0){
+      const c = row.getCell('unpaid');
+      c.font = {bold:true, color:{argb:'FFEF4444'}, size:10, name:'Calibri'};
+    }
+    if(r.clawback > 0){
+      const c = row.getCell('clawback');
+      c.font = {bold:true, color:{argb:'FFFB923C'}, size:10, name:'Calibri'};
+    }
+  });
+
+  // ── ΑΝΑΛΥΤΙΚΑ ──
+  const ws = wb.addWorksheet('ΑΝΑΛΥΤΙΚΑ', {views:[{state:'frozen', ySplit:1}]});
+  ws.columns = [
+    {header:'MASTER',          key:'master',     width:14},
+    {header:'ΣΥΝΕΡΓΑΤΗΣ',       key:'dealer',     width:28},
+    {header:'ΑΡ. ΠΑΡΟΧΗΣ',      key:'supply',     width:18},
+    {header:'ΤΥΠΟΣ',            key:'type',       width:12},
+    {header:'ΟΝΟΜΑΤΕΠΩΝΥΜΟ',    key:'name',       width:30},
+    {header:'ΑΦΜ',              key:'afm',        width:13},
+    {header:'ΤΥΠΟΣ ΑΙΤΗΣΗΣ',    key:'appType',    width:24},
+    {header:'ΠΡΟΓΡΑΜΜΑ',         key:'program',    width:22},
+    {header:'STATUS',              key:'status',     width:24},
+    {header:'ΠΗΓΗ',                key:'source',     width:12},
+    {header:'ΜΗΝΑΣ (CLOSED)',      key:'month',      width:18},
+    {header:'ΚΑΤΑΣΤΑΣΗ',           key:'state',      width:14},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΩΣ',        key:'feeType',    width:18},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΜΗΝΕΣ',     key:'paidMo',     width:24},
+    {header:'CLAWBACK ΜΗΝΕΣ',      key:'clawMo',     width:24},
+    {header:'ΑΚΥΡΩΘΗΚΑΝ',          key:'cancelled',  width:22},
+    {header:'ΑΡΧΕΙΑ ΑΜΟΙΒΩΝ',      key:'paidIn',     width:36},
+    {header:'ΑΡΧΕΙΑ CLAWBACK',     key:'clawbackIn', width:36},
+  ];
+  ws.getRow(1).height = 22;
+  ws.getRow(1).eachCell(cell => {
+    cell.font = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+    cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
+    cell.alignment = {vertical:'middle', horizontal:'center'};
+    cell.border = {bottom:{style:'medium', color:{argb:'FF38bdf8'}}};
+  });
+
+  // Sort: clawback first (review attention), then unpaid, then paid; within each by dealer.
+  const stateRank = (x) => x.clawback ? 0 : (!x.paid ? 1 : 2);
+  const sorted = [...filtered].sort((a, b) => {
+    const sr = stateRank(a) - stateRank(b);
+    if(sr !== 0) return sr;
+    const dc = (a.row.dealer || '').localeCompare(b.row.dealer || '');
+    if(dc !== 0) return dc;
+    return (a.row.status || '').localeCompare(b.row.status || '');
+  });
+
+  // Map status text → fill color, so visual triage matches the on-screen badges
+  const statusFill = (st) => {
+    const s = String(st || '').toUpperCase();
+    if(s === 'CLOSED') return 'FFE6F7EC';
+    if(s.includes('ΑΚΥΡ') || s.includes('CANCEL')) return 'FFFCEAEA';
+    if(s.includes('ΥΠΟΓΡΑΦ') || s.includes('PENDING') || s.includes('ΕΚΚΡΕΜ') || s.includes('ΑΝΑΜΟΝ')) return 'FFFEF4D8';
+    return null;
+  };
+
+  sorted.forEach((x, i) => {
+    const r = x.row;
+    const stateLbl = x.clawback ? 'CLAWBACK' : x.paid ? 'ΠΛΗΡΩΘΗΚΕ' : 'ΑΠΛΗΡΩΤΗ';
+    const row = ws.addRow({
+      master:     r.master || '',
+      dealer:     r.dealer || '',
+      supply:     r.supply,
+      type:       r.type,
+      name:       r.name || '',
+      afm:        r.afm,
+      appType:    r.appType || '',
+      program:    r.program || '',
+      status:     r.status,
+      source:     x.source,
+      month:      r.month,
+      state:      stateLbl,
+      feeType:    getFeeAppType(r.supply),
+      paidMo:     (x.paidMonths   || []).join(' • '),
+      clawMo:     (x.clawMonths   || []).join(' • '),
+      cancelled:  (x.cancelledMths|| []).join(' • '),
+      paidIn:     x.paidIn.join(' • '),
+      clawbackIn: x.clawbackIn.join(' • '),
+    });
+    row.height = 16;
+    row.eachCell({includeEmpty:true}, cell => {
+      cell.alignment = {vertical:'middle'};
+      if(x.clawback){
+        // RED for clawback (επιστροφές αμοιβών)
+        cell.font = {bold:true, color:{argb:'FFB91C1C'}, size:10, name:'Calibri'};
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEE2E2'}};
+      } else if(x.paid){
+        // GREEN for paid
+        cell.font = {bold:true, color:{argb:'FF166534'}, size:10, name:'Calibri'};
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFDCFCE7'}};
+      } else {
+        // EMPTY (white/zebra, no special tint) for genuinely unpaid
+        cell.font = {size:10, name:'Calibri'};
+        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+      }
+    });
+    // Status cell keeps its own status-driven color (only for unpaid;
+    // paid/clawback rows have already been fully colored)
+    if(!x.paid && !x.clawback){
+      const stFill = statusFill(r.status);
+      if(stFill){
+        const c = row.getCell('status');
+        c.fill = {type:'pattern', pattern:'solid', fgColor:{argb: stFill}};
+        c.font = {bold:true, size:10, name:'Calibri', color:{argb:'FF1F2937'}};
+      }
+    }
+  });
+
+  const dt = new Date().toLocaleDateString('el-GR').replace(/\//g, '-');
+  const fp = document.getElementById('fCheckPayment').value || 'unpaid';
+  const tag = fp === 'paid' ? 'ΠΛΗΡΩΜΕΝΕΣ' : fp === 'all' ? 'ΟΛΕΣ_ΑΙΤΗΣΕΙΣ' : 'ΑΠΛΗΡΩΤΕΣ';
+  const filename = `${tag}_${dt}.xlsx`;
+
+  const buf  = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 </script>
 </body>

@@ -654,46 +654,112 @@ async function loadDaily(inp){
     const buf = await readFile(f);
     const wb = XLSX.read(buf,{type:'array',cellDates:false,cellFormula:false,cellHTML:false,cellStyles:false,sheetStubs:false,bookVBA:false});
     for(const sh of wb.SheetNames) trimSheet(wb.Sheets[sh],[0,1,2]);
-    S.dailyMap = new Map();
+    // 3 ξεχωριστά dicts ανά sheet — εφαρμόζουμε τη VBA λογική (reports.vba MODULE_REPORT)
+    S.dictData = new Map();         // φύλλο "Data": {finalStatus, subject, date, type, ts}
+    S.dictMD   = new Map();         // φύλλο "Missing Docs": {finalStatus, reason, date, ts}
+    S.dictPC   = new Map();         // φύλλο "Αναμονή Απάντησης Πελάτη": {finalStatus, comment, date, ts}
+    S.dictDataCount      = new Map();
+    S.dictDataHasEpilysi = new Map();
+    S.dailyMap = new Map();         // union για backward compat / KPI count
     S.dailySource = f.name;
-    let total = 0;
+
+    function classifySheet(sh){
+      const u = up(sh);
+      if (u.includes('MISSING') || u.includes('ΜISSING')) return 'MD';
+      if (u.includes('ΑΝΑΜΟΝ')) return 'PC';
+      if (u.includes('DATA')) return 'DATA';
+      return 'DATA';  // fallback
+    }
 
     for(const sh of wb.SheetNames){
       const ws = wb.Sheets[sh];
       const raw = XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
       if(raw.length<2) continue;
       const hdr = raw[0].map(h=>norm(h));
-      // Strict matching per user request: only ΡΕΥΜΑ + ΦΑ supply columns, only FINAL STATUS
+      const kind = classifySheet(sh);
+
+      // Common columns
       const cTicket = findCol(hdr,'ticket');
-      const cReuma  = findCol(hdr,'ρευμα αριθμ','ρεύμα αριθμ','reuma','electricity supply');
-      const cFa     = findCol(hdr,'φα ηκασπ','φα αριθμ','gas supply','ηκασπ');
-      const cFinal  = findCol(hdr,'final status');
-      const cReason = findCol(hdr,'reason','σχόλι','σχολι');
-      // Date Created — column B / index 1 in this report; allow header fallback
       let cDate = findCol(hdr,'date created','ημερομηνια','ημ/νια');
       if(cDate<0) cDate = 1;
+
+      // Sheet-specific columns
+      let supplyCols = [];
+      let cFinal = -1, cComment = -1, cSubject = -1, cType = -1;
+      if (kind === 'DATA') {
+        // Data: key = N(13) ρεύμα + O(14) αέριο, final = K(10), subject = C(2), type = H(7)
+        const cR = findCol(hdr,'ρευμα αριθμ','ρεύμα αριθμ','reuma','electricity supply');
+        const cF = findCol(hdr,'φα ηκασπ','φα αριθμ','gas supply','ηκασπ');
+        if (cR>=0) supplyCols.push(cR);
+        if (cF>=0) supplyCols.push(cF);
+        cFinal   = findCol(hdr,'final status');
+        cSubject = findCol(hdr,'subject','θεμα','θέμα');
+        if (cSubject<0) cSubject = 2;
+        cType    = findCol(hdr,'type','τυπος','τύπος');
+        if (cType<0) cType = 7;
+      } else if (kind === 'MD') {
+        // Missing Docs: key = J(9), final = G(6), reason = K(10)
+        let cKey = findCol(hdr,'παροχη','αρ παροχ','supply','ηκασπ','αριθμος παροχ');
+        if (cKey<0) cKey = 9;
+        supplyCols.push(cKey);
+        cFinal   = findCol(hdr,'final status','status');
+        if (cFinal<0) cFinal = 6;
+        cComment = findCol(hdr,'reason','σχόλι','σχολι','αιτια','αιτία');
+        if (cComment<0) cComment = 10;
+      } else if (kind === 'PC') {
+        // Αναμονή: key = O(14), final = H(7), comment = L(11)
+        let cKey = findCol(hdr,'παροχη','αρ παροχ','supply','ηκασπ','αριθμος παροχ');
+        if (cKey<0) cKey = 14;
+        supplyCols.push(cKey);
+        cFinal   = findCol(hdr,'final status','status');
+        if (cFinal<0) cFinal = 7;
+        cComment = findCol(hdr,'σχολι','σχόλι','comment','παρατηρ');
+        if (cComment<0) cComment = 11;
+      }
+
       let cnt=0;
       for(let i=1;i<raw.length;i++){
         const r = raw[i]; if(!r) continue;
-        const supplies = [];
-        if(cReuma>=0) supplies.push(normSupply(r[cReuma]));
-        if(cFa>=0)    supplies.push(normSupply(r[cFa]));
+        const supplies = supplyCols.map(c => normSupply(r[c])).filter(s => s && s.length>=4);
+        if (!supplies.length) continue;
         const newStatus = norm(cFinal>=0 ? r[cFinal] : '');
-        if(!newStatus) continue;
-        const reason = norm(cReason>=0 ? r[cReason] : '');
-        const ticket = norm(cTicket>=0 ? r[cTicket] : '');
-        const ts = parseGreekDateTime(r[cDate]);
+        if (!newStatus) continue;
+        const subject = cSubject>=0 ? norm(r[cSubject]) : '';
+        const reason  = cComment>=0 ? norm(r[cComment]) : '';
+        const type    = cType>=0    ? norm(r[cType])    : '';
+        const dateRaw = r[cDate];
+        const ts      = parseGreekDateTime(dateRaw);
+        const dateStr = dateRaw ? String(dateRaw) : '';
+
         for(const sup of supplies){
-          if(!sup || sup.length<4) continue;
-          // Keep the entry with the most recent Date Created
-          const existing = S.dailyMap.get(sup);
-          if(existing && existing.ts >= ts) continue;
-          S.dailyMap.set(sup,{newStatus, reason, ticket, sheet:sh, ts});
+          // Union map (για count + backward compat)
+          const existU = S.dailyMap.get(sup);
+          if (!existU || existU.ts < ts) {
+            S.dailyMap.set(sup, {newStatus, reason, ticket: norm(cTicket>=0 ? r[cTicket] : ''), sheet:sh, ts});
+          }
+          if (kind === 'DATA') {
+            S.dictDataCount.set(sup, (S.dictDataCount.get(sup)||0) + 1);
+            const subjUp = up(subject);
+            if (subjUp.includes('ΕΠΙΛΥΣΗ')) S.dictDataHasEpilysi.set(sup, true);
+            const e = S.dictData.get(sup);
+            if (!e || e.ts < ts) {
+              S.dictData.set(sup, {finalStatus:newStatus, subject, date:dateStr, type, ts});
+            }
+          } else if (kind === 'MD') {
+            const e = S.dictMD.get(sup);
+            if (!e || e.ts < ts) {
+              S.dictMD.set(sup, {finalStatus:newStatus, reason, date:dateStr, ts});
+            }
+          } else if (kind === 'PC') {
+            const e = S.dictPC.get(sup);
+            if (!e || e.ts < ts) {
+              S.dictPC.set(sup, {finalStatus:newStatus, comment:reason, date:dateStr, ts});
+            }
+          }
           cnt++;
         }
       }
-      addLog(`<span class="ok">✓ ${sh}</span> — ${cnt} mappings`);
-      total += cnt;
+      addLog(`<span class="ok">✓ ${sh}</span> — ${cnt} mappings (${kind})`);
     }
     const dt = ((performance.now()-t0)/1000).toFixed(1);
     addLog(`<strong>Daily Report: ${S.dailyMap.size} μοναδικές παροχές (${dt}s)</strong>`);
@@ -1398,18 +1464,75 @@ function downloadWB(wb,fname){ XLSX.writeFile(wb,fname); }
 // ── BACK-OFFICE STYLED REPORT (ίδιο layout με αρχεία στο BACK OFFICE/REPORTS) ──
 const REPORT_HEADERS = ['HM/MM/EE','ΟΝΟΜΑΤΕΠΩΝΥΜΟ','ΑΦΜ','ΤΥΠΟΣ ΠΑΡΟΧΗΣ','ΑΡ ΠΑΡΟΧΗΣ','DEALER','ΤΥΠΟΣ ΑΙΤΗΣΗΣ','STATUS','ΠΡΟΓΡΑΜΜΑ',' ',' '];
 const REPORT_WIDTHS = [11,51,12,16,15,38,17,20,32,5,60];
+// Πλήρης VBA decision tree (reports.vba MODULE_REPORT v8 -> UpdateMainFileFromReport)
+// Συνδυάζει σχόλια από 3 sheets: Data + Missing Docs + Αναμονή Πελάτη
 function buildKComment(r){
-  const hit = S.dailyMap.get(r.supply);
-  if(!hit){
-    if(classifyStatus(r.status)==='missing') return 'Δεν βρέθηκε στο ρεπόρτ';
-    return '';
+  const ap     = r.supply;
+  const status = up(r.status||'').trim();
+  // Skip statuses (στο VBA δεν αγγίζονται)
+  const SKIP = new Set(['CLOSED','ΑΚΥΡΩΘΗΚΕ','ΑΝΑΜΟΝΗ ΕΓΓΡΑΦΟΥ','ΠΡΟΣ ΚΑΤΑΧΩΡΗΣΗ','ΠΡΟΣ ΥΠΟΓΡΑΦΗ']);
+  if (SKIP.has(status)) return '';
+
+  const data = S.dictData?.get(ap);
+  const md   = S.dictMD?.get(ap);
+  const pc   = S.dictPC?.get(ap);
+
+  if (!data && !md && !pc) {
+    return 'Δεν βρέθηκε στο ρεπόρτ';
   }
-  const sheet = (hit.sheet||'');
-  const u = up(sheet);
-  if(u.includes('ΑΝΑΜΟΝ')) return `Αναμονή Πελάτη: ${hit.reason || hit.newStatus}`;
-  if(u.includes('MISSING')||u.includes('ΜISSING')) return `Missing Docs: ${hit.reason || hit.newStatus}`;
-  if(u.includes('DATA'))    return `Data: ${hit.newStatus}`;
-  return `${sheet}: ${hit.newStatus}`.trim();
+
+  // Αν υπάρχει Data, εφαρμόζουμε τη βασική decision tree
+  if (data) {
+    const fs = up(data.finalStatus||'').trim();
+
+    // 1. CLOSED
+    if (fs === 'CLOSED') {
+      let s = 'Data: CLOSED';
+      const cnt = S.dictDataCount?.get(ap) || 1;
+      const hasEp = S.dictDataHasEpilysi?.get(ap) || false;
+      if (cnt > 1 && !hasEp) s += ` | ΒΡΕΘΗΚΕ ${cnt} ΦΟΡΕΣ`;
+      return s;
+    }
+    // 2. CANCELLED INDIRECT
+    if (fs.includes('CANCELLED INDIRECT')) {
+      const reason = md?.reason || '';
+      return reason ? `${data.finalStatus} - ${reason}` : data.finalStatus;
+    }
+    // 3. CANCELLED FO
+    if (fs.includes('CANCELLED FO')) {
+      const reason = md?.reason || '';
+      return reason ? `Cancelled FO - ${reason}` : 'Cancelled FO';
+    }
+    // 4. DUPLICATE
+    if (fs.includes('DUPLICATE')) {
+      return `DUPLICATE - ${data.finalStatus}`;
+    }
+    // 5. ΑΝΟΙΧΤΟ / ΑΝΟΙΚΤΟ / OPEN
+    if (/ΑΝΟΙ[ΧΚ]ΤΟ|OPEN/i.test(fs)) {
+      const subj = up(data.subject||'');
+      if (subj.includes('ΕΠΙΛΥΣΗ')) {
+        let s = `Επιλύθηκε ${data.date||''}`.trim();
+        if (md?.reason) s += ` - ${md.reason}`;
+        // Τυπογραφικό λάθος: "ΕΠΙΛΥΣΗ" χωρίς "ΕΠΙΛΥΣΗ ΕΚΚΡΕΜΟΤΗΤΑΣ"
+        if (subj.includes('ΕΠΙΛΥΣΗ') && !subj.includes('ΕΠΙΛΥΣΗ ΕΚΚΡΕΜΟΤΗΤΑΣ')) {
+          s = `!! ΤΥΠΟΓΡΑΦΙΚΟ ΛΑΘΟΣ (${data.subject}) !! ${s}`;
+        }
+        return s;
+      }
+      return `Ανοιχτό - ${data.date||''}`.trim();
+    }
+  }
+
+  // 6. Default — συνδυασμός Αναμονή Πελάτη + Missing Docs (η πιο συχνή περίπτωση εκκρεμότητας)
+  const parts = [];
+  if (pc?.comment) parts.push(`Αναμονή Πελάτη: ${pc.comment}`);
+  if (md?.reason)  parts.push(`Missing Docs: ${md.reason}`);
+  if (parts.length) return parts.join(' | ');
+  // Fallback
+  if (data?.finalStatus) return `Εκκρεμότητα - ${data.finalStatus}`;
+  if (md?.finalStatus)   return `Missing Docs: ${md.finalStatus}`;
+  if (pc?.finalStatus)   return `Αναμονή Πελάτη: ${pc.finalStatus}`;
+  return '';
 }
 async function buildStyledReportBuffer(rows){
   if(typeof ExcelJS==='undefined') throw new Error('ExcelJS δεν φορτώθηκε');
