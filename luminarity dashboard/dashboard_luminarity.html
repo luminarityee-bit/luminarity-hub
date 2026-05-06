@@ -3252,6 +3252,42 @@ async function exportUnpaid(){
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── Universal "Αφαίρεση" κουμπί για κάθε file input ──────────────────
+function _renderRemoveBtn(inp){
+  const card = inp.closest('.upload-card'); if (!card) return;
+  let dl = card.querySelector('.file-rm-list');
+  if (!dl) {
+    dl = document.createElement('div');
+    dl.className = 'file-rm-list';
+    dl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px';
+    card.appendChild(dl);
+  }
+  dl.innerHTML = '';
+  if (!inp.files.length) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.innerHTML = '✕ Αφαίρεση επιλογής';
+  btn.title = 'Αποεπιλογή αρχείου';
+  btn.style.cssText = 'background:transparent;border:1px solid var(--red);color:var(--red);padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600';
+  btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--red)'; btn.style.color = '#fff'; });
+  btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; btn.style.color = 'var(--red)'; });
+  btn.addEventListener('click', () => {
+    inp.value = '';
+    dl.innerHTML = '';
+    // Καθαρίζει tags (file-tag-list ή tag div)
+    const lists = card.querySelectorAll('.file-tag-list, [id^="tag"]');
+    lists.forEach(el => el.innerHTML = '');
+    inp.dispatchEvent(new Event('change', {bubbles:true}));
+  });
+  dl.appendChild(btn);
+}
+document.addEventListener('change', (e) => {
+  const inp = e.target;
+  if (inp && inp.tagName === 'INPUT' && inp.type === 'file') {
+    _renderRemoveBtn(inp);
+  }
+});
 </script>
 </body>
 </html>
