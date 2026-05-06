@@ -1464,6 +1464,26 @@ function downloadWB(wb,fname){ XLSX.writeFile(wb,fname); }
 // ── BACK-OFFICE STYLED REPORT (ίδιο layout με αρχεία στο BACK OFFICE/REPORTS) ──
 const REPORT_HEADERS = ['HM/MM/EE','ΟΝΟΜΑΤΕΠΩΝΥΜΟ','ΑΦΜ','ΤΥΠΟΣ ΠΑΡΟΧΗΣ','ΑΡ ΠΑΡΟΧΗΣ','DEALER','ΤΥΠΟΣ ΑΙΤΗΣΗΣ','STATUS','ΠΡΟΓΡΑΜΜΑ',' ',' '];
 const REPORT_WIDTHS = [11,51,12,16,15,38,17,20,32,5,60];
+// VBA logic για στήλη H (status). Αλλάζει ΜΟΝΟ σε CLOSED/ΑΚΥΡΩΘΗΚΕ/ΕΚΚΡΕΜΟΤΗΤΑ.
+// Σε όλες τις άλλες περιπτώσεις (skip statuses, OPEN, DUPLICATE, μη-βρεθέν) μένει το original.
+function applyVbaStatus(r){
+  const ap     = r.supply;
+  const status = up(r.status||'').trim();
+  // Skip statuses — δεν αγγίζονται (ίδια λογική με VBA)
+  const SKIP = new Set(['CLOSED','ΑΚΥΡΩΘΗΚΕ','ΑΝΑΜΟΝΗ ΕΓΓΡΑΦΟΥ','ΠΡΟΣ ΚΑΤΑΧΩΡΗΣΗ','ΠΡΟΣ ΥΠΟΓΡΑΦΗ']);
+  if (SKIP.has(status)) return r.status;
+  const data = S.dictData?.get(ap);
+  // Δεν βρέθηκε στο ρεπόρτ → μένει ως είναι (όπως VBA)
+  if (!data) return r.status;
+  const fs = up(data.finalStatus||'').trim();
+  if (fs === 'CLOSED')                     return 'CLOSED';
+  if (fs.includes('CANCELLED INDIRECT'))   return 'ΑΚΥΡΩΘΗΚΕ';
+  if (fs.includes('CANCELLED FO'))         return 'ΕΚΚΡΕΜΟΤΗΤΑ';
+  if (fs.includes('DUPLICATE'))            return r.status;     // μένει ίδιο
+  if (/ΑΝΟΙ[ΧΚ]ΤΟ|OPEN/i.test(fs))         return r.status;     // μένει ίδιο
+  return 'ΕΚΚΡΕΜΟΤΗΤΑ';                                          // default
+}
+
 // Πλήρης VBA decision tree (reports.vba MODULE_REPORT v8 -> UpdateMainFileFromReport)
 // Συνδυάζει σχόλια από 3 sheets: Data + Missing Docs + Αναμονή Πελάτη
 function buildKComment(r){
@@ -1552,17 +1572,20 @@ async function buildStyledReportBuffer(rows){
   // sort: παλαιότερη → πιο πρόσφατη
   const sorted = [...rows].sort((a,b)=>(parseGreekDateTime(a.date)||0)-(parseGreekDateTime(b.date)||0));
   for(const r of sorted){
-    const isClosed = classifyStatus(r.status)==='closed';
+    // Εφαρμόζουμε VBA logic: status της H αλλάζει ΜΟΝΟ σε CLOSED/ΑΚΥΡΩΘΗΚΕ/ΕΚΚΡΕΜΟΤΗΤΑ
+    // Στις άλλες περιπτώσεις (skip-statuses, OPEN, DUPLICATE, "δεν βρέθηκε") μένει το original.
+    const newStatus = applyVbaStatus(r);
+    const isClosed  = up(newStatus) === 'CLOSED';
     const row = ws.addRow([
       r.date instanceof Date ? r.date : (r.date ? new Date(parseGreekDateTime(r.date)||r.date) : ''),
-      r.name, r.afm, r.type, r.supply, r.dealer, r.appType, r.status, r.program,
+      r.name, r.afm, r.type, r.supply, r.dealer, r.appType, newStatus, r.program,
       isClosed,
       buildKComment(r)
     ]);
     row.getCell(1).numFmt = 'd/m/yyyy';
     row.getCell(11).alignment = {wrapText:false, vertical:'center'};
-    // soft tint for non-closed rows in column J/H
-    const cls = classifyStatus(r.status);
+    // Tint βάσει του νέου status (όχι του original)
+    const cls = classifyStatus(newStatus);
     if(cls==='closed'){
       row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFE6F4EA'}};
     } else if(cls==='cancelled'){
