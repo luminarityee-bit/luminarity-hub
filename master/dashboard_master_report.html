@@ -1386,7 +1386,11 @@ function renderCharts(){
 
 // ── EXPORTS ───────────────────────────────────────────────────────
 // Style identical to ΑΡΧΕΙΟ LUMINARITY 2026 + extra columns for status update + interval
+// Ίδια δομή με το VBA report (στήλες A:K του master xlsm)
+// A=Ημερ., B=Ονομ., C=ΑΦΜ, D=Τύπος Παροχής, E=Αρ Παροχής, F=DEALER,
+// G=Τύπος Αίτησης, H=STATUS (VBA-applied), I=Πρόγραμμα, J=Done, K=Σχόλια
 function buildLumStyleRow(r){
+  const newStatus = applyVbaStatus(r);
   return {
     'HM/MM/EE': r.date instanceof Date? r.date : (r.date||''),
     'ΟΝΟΜΑΤΕΠΩΝΥΜΟ': r.name,
@@ -1395,13 +1399,10 @@ function buildLumStyleRow(r){
     'ΑΡ ΠΑΡΟΧΗΣ': r.supply,
     'DEALER': r.dealer,
     'ΤΥΠΟΣ ΑΙΤΗΣΗΣ': r.appType,
-    'STATUS': r.status,
+    'STATUS': newStatus,
     'ΠΡΟΓΡΑΜΜΑ': r.program,
-    'ΜΗΝΑΣ ΑΡΧΕΙΟΥ': r.month,
-    'ΠΑΛΙΟ STATUS': r.originalStatus,
-    'ΕΝΗΜΕΡΩΣΗ': r.updated? 'ΝΑΙ':'',
-    'REASON': r.reason||'',
-    'ΔΙΑΣΤΗΜΑ ΑΠΟ ΠΡΟΗΓ. (ΗΜ)': (r._intervalDays!=null && r._intervalDays!=='') ? r._intervalDays : ''
+    ' ': up(newStatus) === 'CLOSED' ? true : '',
+    'ΣΧΟΛΙΑ': buildKComment(r)
   };
 }
 // Group rows by groupKey, sort each by date, compute interval days from previous row of same group
@@ -1462,25 +1463,27 @@ function safeSheetName(name){
 function downloadWB(wb,fname){ XLSX.writeFile(wb,fname); }
 
 // ── BACK-OFFICE STYLED REPORT (ίδιο layout με αρχεία στο BACK OFFICE/REPORTS) ──
+// 11 στήλες (όπως VBA): A-G ίδιες, H=STATUS (VBA-applied), I=ΠΡΟΓΡΑΜΜΑ, J=Done, K=ΣΧΟΛΙΑ
 const REPORT_HEADERS = ['HM/MM/EE','ΟΝΟΜΑΤΕΠΩΝΥΜΟ','ΑΦΜ','ΤΥΠΟΣ ΠΑΡΟΧΗΣ','ΑΡ ΠΑΡΟΧΗΣ','DEALER','ΤΥΠΟΣ ΑΙΤΗΣΗΣ','STATUS','ΠΡΟΓΡΑΜΜΑ',' ',' '];
 const REPORT_WIDTHS = [11,51,12,16,15,38,17,20,32,5,60];
 // VBA logic για στήλη H (status). Αλλάζει ΜΟΝΟ σε CLOSED/ΑΚΥΡΩΘΗΚΕ/ΕΚΚΡΕΜΟΤΗΤΑ.
 // Σε όλες τις άλλες περιπτώσεις (skip statuses, OPEN, DUPLICATE, μη-βρεθέν) μένει το original.
+// Βασίζεται στο r.originalStatus (το status του LUMINARITY xlsm) και στο dictData του Daily Report.
 function applyVbaStatus(r){
-  const ap     = r.supply;
-  const status = up(r.status||'').trim();
-  // Skip statuses — δεν αγγίζονται (ίδια λογική με VBA)
+  const original = r.originalStatus || r.status || '';
+  const status   = up(original).trim();
+  // Skip statuses — μένουν ως είναι
   const SKIP = new Set(['CLOSED','ΑΚΥΡΩΘΗΚΕ','ΑΝΑΜΟΝΗ ΕΓΓΡΑΦΟΥ','ΠΡΟΣ ΚΑΤΑΧΩΡΗΣΗ','ΠΡΟΣ ΥΠΟΓΡΑΦΗ']);
-  if (SKIP.has(status)) return r.status;
-  const data = S.dictData?.get(ap);
+  if (SKIP.has(status)) return original;
+  const data = S.dictData?.get(r.supply);
   // Δεν βρέθηκε στο ρεπόρτ → μένει ως είναι (όπως VBA)
-  if (!data) return r.status;
+  if (!data) return original;
   const fs = up(data.finalStatus||'').trim();
   if (fs === 'CLOSED')                     return 'CLOSED';
   if (fs.includes('CANCELLED INDIRECT'))   return 'ΑΚΥΡΩΘΗΚΕ';
   if (fs.includes('CANCELLED FO'))         return 'ΕΚΚΡΕΜΟΤΗΤΑ';
-  if (fs.includes('DUPLICATE'))            return r.status;     // μένει ίδιο
-  if (/ΑΝΟΙ[ΧΚ]ΤΟ|OPEN/i.test(fs))         return r.status;     // μένει ίδιο
+  if (fs.includes('DUPLICATE'))            return original;     // μένει ίδιο
+  if (/ΑΝΟΙ[ΧΚ]ΤΟ|OPEN/i.test(fs))         return original;     // μένει ίδιο
   return 'ΕΚΚΡΕΜΟΤΗΤΑ';                                          // default
 }
 
@@ -1569,31 +1572,37 @@ async function buildStyledReportBuffer(rows){
     cell.alignment = {horizontal:'center', vertical:'center', wrapText:true};
     cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
   });
-  // sort: παλαιότερη → πιο πρόσφατη
+  // sort: παλαιότερη → πιο πρόσφατη (όπως VBA)
   const sorted = [...rows].sort((a,b)=>(parseGreekDateTime(a.date)||0)-(parseGreekDateTime(b.date)||0));
   for(const r of sorted){
-    // Εφαρμόζουμε VBA logic: status της H αλλάζει ΜΟΝΟ σε CLOSED/ΑΚΥΡΩΘΗΚΕ/ΕΚΚΡΕΜΟΤΗΤΑ
-    // Στις άλλες περιπτώσεις (skip-statuses, OPEN, DUPLICATE, "δεν βρέθηκε") μένει το original.
-    const newStatus = applyVbaStatus(r);
-    const isClosed  = up(newStatus) === 'CLOSED';
+    // Στήλη H: VBA-applied status (αλλάζει σε CLOSED/ΑΚΥΡΩΘΗΚΕ/ΕΚΚΡΕΜΟΤΗΤΑ ή μένει original)
+    const newStatus  = applyVbaStatus(r);
+    const isClosed   = up(newStatus) === 'CLOSED';
+    // 11 στήλες, ίδια δομή με VBA: A=date, B=name, C=afm, D=type, E=supply, F=dealer,
+    // G=appType, H=STATUS (νέο), I=program, J=Done flag, K=comment
     const row = ws.addRow([
       r.date instanceof Date ? r.date : (r.date ? new Date(parseGreekDateTime(r.date)||r.date) : ''),
-      r.name, r.afm, r.type, r.supply, r.dealer, r.appType, newStatus, r.program,
+      r.name, r.afm, r.type, r.supply, r.dealer, r.appType,
+      newStatus, r.program,
       isClosed,
       buildKComment(r)
     ]);
     row.getCell(1).numFmt = 'd/m/yyyy';
     row.getCell(11).alignment = {wrapText:false, vertical:'center'};
-    // Tint βάσει του νέου status (όχι του original)
+    // Tint στη στήλη H (STATUS) βάσει του νέου status
     const cls = classifyStatus(newStatus);
-    if(cls==='closed'){
-      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFE6F4EA'}};
-    } else if(cls==='cancelled'){
-      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFCE4E4'}};
-    } else if(cls==='missing'){
-      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE6CC'}};
-    } else if(cls==='pending'){
-      row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4CE'}};
+    if(cls==='closed')         row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFE6F4EA'}};
+    else if(cls==='cancelled') row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFCE4E4'}};
+    else if(cls==='missing')   row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE6CC'}};
+    else if(cls==='pending')   row.getCell(8).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4CE'}};
+    // Tint στη στήλη K (ΣΧΟΛΙΑ) όπως VBA: ροζ για ΒΡΕΘΗΚΕ/DUPLICATE, σιελ για ΕΠΙΛΥΣΗ, κίτρινο για εκκρεμότητες
+    const k = String(row.getCell(11).value||'');
+    if(k.includes('DUPLICATE') || / \| ΒΡΕΘΗΚΕ /.test(k)) {
+      row.getCell(11).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFB6C1'}}; // ροζ
+    } else if(k.startsWith('Επιλύθηκε')) {
+      row.getCell(11).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FF87CEEB'}}; // σιελ
+    } else if(cls==='pending' || up(newStatus) === 'ΕΚΚΡΕΜΟΤΗΤΑ') {
+      if (k) row.getCell(11).fill = {type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}}; // κίτρινο
     }
   }
   ws.views = [{state:'frozen', ySplit:1}];
