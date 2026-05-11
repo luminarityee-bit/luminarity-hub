@@ -1305,8 +1305,16 @@ function renderSummary(){
 }
 
 function jumpTo(key, val){
-  if(key === 'master') document.getElementById('fMaster').value = val;
-  else document.getElementById('fDealer').value = val;
+  if(key === 'master'){
+    document.getElementById('fMaster').value = val;
+    document.getElementById('fDealer').value = '';
+  } else {
+    document.getElementById('fDealer').value = val;
+    document.getElementById('fMaster').value = '';
+  }
+  document.getElementById('fTypeD').value = '';
+  document.getElementById('fMonth').value = '';
+  document.getElementById('detailSearch').value = '';
   renderDetail();
   switchTabByName('detail');
 }
