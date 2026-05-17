@@ -2467,7 +2467,7 @@ function processAdhocFile(file, target){
         const colIdx = autoDetectAdhocSupplyCol(hdr, rows);
         if(colIdx >= 0){
           const supplies = extractAdhocSupplies(rows, colIdx);
-          addAdhocFile(target, file.name, hdr[colIdx] || `(στήλη ${colIdx+1})`, supplies);
+          addAdhocFile(target, file.name, hdr[colIdx] || `(στήλη ${colIdx+1})`, supplies, hdr, rows, colIdx);
           logCheck(`<span class="ok">✓ ${file.name}</span> — ${supplies.size} παροχές <span style="opacity:.7">(στήλη: "${hdr[colIdx] || colIdx+1}")</span>`);
         } else {
           // Needs user intervention
@@ -2524,9 +2524,10 @@ function extractAdhocSupplies(rows, colIdx){
   return set;
 }
 
-function addAdhocFile(target, fileName, columnHeader, supplies){
+function addAdhocFile(target, fileName, columnHeader, supplies, hdr, rows, supplyColIdx){
   const list = target === 'adhoc' ? C.adhocFiles : C.sentFiles;
-  const data = {name: fileName, columnHeader, supplies, count: supplies.size};
+  const data = {name: fileName, columnHeader, supplies, count: supplies.size,
+                hdr: hdr || [], rows: rows || [], supplyColIdx: supplyColIdx ?? -1};
   const existing = list.findIndex(f => f.name === fileName);
   if(existing >= 0) list.splice(existing, 1, data);
   else list.push(data);
@@ -2538,7 +2539,7 @@ function pickAdhocColumn(target, idx, columnIdx){
   const pending = C.adhocPending[target][idx];
   if(!pending) return;
   const supplies = extractAdhocSupplies(pending.rows, ci);
-  addAdhocFile(target, pending.fileName, pending.hdr[ci] || `(στήλη ${ci+1})`, supplies);
+  addAdhocFile(target, pending.fileName, pending.hdr[ci] || `(στήλη ${ci+1})`, supplies, pending.hdr, pending.rows, ci);
   C.adhocPending[target].splice(idx, 1);
   logCheck(`<span class="ok">✓ ${pending.fileName}</span> — ${supplies.size} παροχές (επιλέχθηκε στήλη: "${pending.hdr[ci] || ci+1}")`);
   renderAdhocSection();
@@ -2598,6 +2599,10 @@ function getAdhocResults(){
   for(const r of S.lumRows)    if(r.supply && !meta.has(r.supply)) meta.set(r.supply, r);
   for(const r of C.closedRows) if(r.supply && !meta.has(r.supply)) meta.set(r.supply, r);
 
+  // Separate map for Daily Report closed date (always prefer this for statusDate)
+  const closedBySupply = new Map();
+  for(const r of C.closedRows) closedBySupply.set(r.supply, r);
+
   return [...adhocSet].map(supply => {
     const m = meta.get(supply) || {};
 
@@ -2625,6 +2630,13 @@ function getAdhocResults(){
 
     const sentInFiles = C.sentFiles.filter(f => f.supplies.has(supply)).map(f => f.name);
 
+    const closed = closedBySupply.get(supply);
+    const statusDate = closed
+      ? (closed.closedDay && closed.closedMonth && closed.closedYear
+          ? `${String(closed.closedDay).padStart(2,'0')}/${String(closed.closedMonth).padStart(2,'0')}/${closed.closedYear}`
+          : closed.date || '')
+      : '';
+
     return {
       supply,
       type:    m.type    || '',
@@ -2633,6 +2645,7 @@ function getAdhocResults(){
       dealer:  m.dealer  || '',
       master:  m.master  || '',
       status:  m.status  || '',
+      statusDate,
       payState,
       paidIn, clawbackIn,
       paidMonths: feeMonths,
@@ -2685,6 +2698,7 @@ function renderAdhocResults(){
     <th>Συνεργάτης</th>
     <th>Ονοματεπώνυμο</th>
     <th>Status</th>
+    <th>Ημ. Status</th>
     <th>💶 Πληρώθηκε σε εμένα</th>
     <th>Πληρώθηκε ως</th>
     ${showSent ? '<th>📨 Στάλθηκε στον συνεργάτη</th>' : ''}
@@ -2737,14 +2751,47 @@ function renderAdhocResults(){
       <td><strong>${r.dealer || '–'}</strong></td>
       <td style="font-size:12px">${r.name || ''}</td>
       <td>${r.status ? `<span class="bdg ${statusBadgeClass(r.status)}">${r.status}</span>` : '–'}</td>
+      <td style="font-size:12px;color:var(--muted)">${r.statusDate || '–'}</td>
       <td>${payBadge}</td>
       <td>${feeTypeBadge}</td>
       ${sentCell}
       <td style="font-size:12px">${conclusion}</td>
     </tr>`;
   }).join('') + (results.length > 1000
-    ? `<tr><td colspan="${showSent ? 9 : 8}" style="text-align:center;color:var(--muted);padding:14px">… και άλλες ${results.length - 1000} (κάντε εξαγωγή σε Excel για όλες)</td></tr>`
+    ? `<tr><td colspan="${showSent ? 10 : 9}" style="text-align:center;color:var(--muted);padding:14px">… και άλλες ${results.length - 1000} (κάντε εξαγωγή σε Excel για όλες)</td></tr>`
     : '');
+}
+
+function _adhocStyleRow(exRow, payState, rowIdx, showSent, r){
+  exRow.height = 16;
+  exRow.eachCell({includeEmpty:true}, cell => {
+    cell.alignment = {vertical:'middle'};
+    if(payState === 'clawback'){
+      cell.font = {bold:true, color:{argb:'FFB91C1C'}, size:10, name:'Calibri'};
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEE2E2'}};
+    } else if(payState === 'paid'){
+      cell.font = {bold:true, color:{argb:'FF166534'}, size:10, name:'Calibri'};
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFDCFCE7'}};
+    } else {
+      cell.font = {size:10, name:'Calibri'};
+      const bg = rowIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
+    }
+  });
+  if(r && showSent && !r.sent && payState !== 'unpaid'){
+    const c = exRow.getCell('sent');
+    c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEF3C7'}};
+    c.font = {bold:true, color:{argb:'FFB45309'}, size:10, name:'Calibri'};
+  }
+}
+
+function _adhocConclusion(r, showSent){
+  if(!r) return 'Δεν εντοπίστηκε σε αρχείο αμοιβών';
+  if(r.payState === 'paid')     return showSent && !r.sent ? 'Πληρώθηκε αλλά ΔΕΝ στάλθηκε στον συνεργάτη' : 'Πληρωμένη';
+  if(r.payState === 'clawback') return 'Ακυρώθηκε (επιστροφή αμοιβής)';
+  if(showSent && r.sent)        return 'Στάλθηκε στον συνεργάτη αλλά δεν πληρώθηκε';
+  if(showSent)                  return 'ΟΥΤΕ στάλθηκε ΟΥΤΕ πληρώθηκε';
+  return 'Δεν εντοπίστηκε σε αρχείο αμοιβών';
 }
 
 async function exportAdhocResults(){
@@ -2752,31 +2799,95 @@ async function exportAdhocResults(){
   if(!results.length){ alert('Δεν υπάρχουν εγγραφές για εξαγωγή.'); return; }
   const showSent = C.sentFiles.length > 0;
 
+  // Build lookup map: supply → result
+  const resultMap = new Map();
+  for(const r of results) resultMap.set(r.supply, r);
+
   const wb = new ExcelJS.Workbook();
   wb.creator = 'LUMINARITY Dashboard';
-  const ws = wb.addWorksheet('ΕΞΤΡΑ ΕΛΕΓΧΟΣ', {views:[{state:'frozen', ySplit:1}]});
-  ws.columns = [
-    {header:'ΑΡ. ΠΑΡΟΧΗΣ',         key:'supply',    width:18},
-    {header:'ΤΥΠΟΣ',               key:'type',      width:12},
-    {header:'MASTER',              key:'master',    width:14},
-    {header:'ΣΥΝΕΡΓΑΤΗΣ',          key:'dealer',    width:28},
-    {header:'ΟΝΟΜΑΤΕΠΩΝΥΜΟ',       key:'name',      width:30},
-    {header:'ΑΦΜ',                 key:'afm',       width:13},
-    {header:'STATUS',              key:'status',    width:22},
-    {header:'ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ',  key:'state',     width:16},
-    {header:'ΠΛΗΡΩΘΗΚΕ ΩΣ',        key:'feeType',   width:18},
-    {header:'ΠΡΟΓΡΑΜΜΑ ΑΜΟΙΒΗΣ',   key:'feeProg',   width:22},
-    {header:'ΠΛΗΡΩΘΗΚΕ ΜΗΝΕΣ',    key:'paidMo',    width:24},
-    {header:'CLAWBACK ΜΗΝΕΣ',      key:'clawMo',    width:24},
-    {header:'ΑΡΧΕΙΑ ΑΜΟΙΒΩΝ',     key:'paidIn',    width:36},
-    ...(showSent ? [
-      {header:'ΣΤΑΛΘΗΚΕ;',         key:'sent',      width:14},
-      {header:'ΑΡΧΕΙΑ ΣΤΟΛΗΣ',    key:'sentIn',    width:36},
-    ] : []),
-    {header:'ΣΥΜΠΕΡΑΣΜΑ',          key:'conclusion',width:46},
+
+  // ── Sheet per adhoc file: original rows + status columns appended ──
+  const statusCols = [
+    {header:'ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ', key:'xState',      width:20},
+    {header:'ΗΜ. STATUS',         key:'xStatusDate',  width:14},
+    ...(showSent ? [{header:'ΣΤΑΛΘΗΚΕ;', key:'sent', width:14}] : []),
+    {header:'ΠΛΗΡΩΘΗΚΕ ΜΗΝΕΣ',   key:'xPaidMo',     width:28},
+    {header:'CLAWBACK ΜΗΝΕΣ',     key:'xClawMo',     width:24},
+    {header:'ΑΡΧΕΙΑ ΑΜΟΙΒΩΝ',    key:'xPaidIn',     width:36},
+    ...(showSent ? [{header:'ΑΡΧΕΙΑ ΣΤΟΛΗΣ', key:'sentIn', width:36}] : []),
+    {header:'ΣΥΜΠΕΡΑΣΜΑ',         key:'xConc',       width:46},
   ];
-  ws.getRow(1).height = 22;
-  ws.getRow(1).eachCell(cell => {
+
+  for(const af of C.adhocFiles){
+    if(!af.rows || af.rows.length === 0 || af.supplyColIdx < 0) continue;
+    const sheetName = af.name.replace(/\.[^.]+$/, '').substring(0, 27) + ' ✓';
+    const ws = wb.addWorksheet(sheetName, {views:[{state:'frozen', ySplit:1}]});
+
+    const origCols = (af.hdr || []).map((h, i) => ({
+      header: h || `Στήλη ${i+1}`,
+      key:    `o${i}`,
+      width:  Math.min(Math.max(String(h || '').length + 4, 10), 40),
+    }));
+    ws.columns = [...origCols, ...statusCols];
+
+    ws.getRow(1).height = 22;
+    ws.getRow(1).eachCell((cell, colNum) => {
+      const isNew = colNum > origCols.length;
+      cell.font = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
+      cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb: isNew ? 'FF1A4427' : 'FF1A2744'}};
+      cell.alignment = {vertical:'middle', horizontal:'center'};
+      cell.border = {bottom:{style:'medium', color:{argb: isNew ? 'FF4ade80' : 'FF38bdf8'}}};
+    });
+
+    af.rows.forEach((row, i) => {
+      const supplyVal = norm(row ? row[af.supplyColIdx] : null);
+      const r = supplyVal ? resultMap.get(supplyVal) : null;
+      const payState = r ? r.payState : (supplyVal ? 'unpaid' : null);
+      const stateLbl = payState === 'paid' ? 'ΠΛΗΡΩΘΗΚΕ' : payState === 'clawback' ? 'CLAWBACK' : (supplyVal ? 'ΟΧΙ' : '');
+
+      const rowData = {};
+      (row || []).forEach((v, ci) => { rowData[`o${ci}`] = v ?? ''; });
+      rowData.xState      = stateLbl;
+      rowData.xStatusDate = r ? (r.statusDate || '') : '';
+      rowData.xPaidMo     = r ? (r.paidMonths  || []).join(' • ') : '';
+      rowData.xClawMo     = r ? (r.clawMonths  || []).join(' • ') : '';
+      rowData.xPaidIn     = r ? r.paidIn.map(e => e.file).join(' • ') : '';
+      rowData.xConc       = _adhocConclusion(r, showSent);
+      if(showSent){
+        rowData.sent   = r ? (r.sent ? 'ΝΑΙ' : 'ΟΧΙ') : '';
+        rowData.sentIn = r ? r.sentIn.join(' • ') : '';
+      }
+
+      const exRow = ws.addRow(rowData);
+      _adhocStyleRow(exRow, payState, i, showSent, r);
+    });
+  }
+
+  // ── Summary sheet (all supplies from all adhoc files, sorted) ──
+  const ws2 = wb.addWorksheet('ΕΞΤΡΑ ΕΛΕΓΧΟΣ', {views:[{state:'frozen', ySplit:1}]});
+  ws2.columns = [
+    {header:'ΑΡ. ΠΑΡΟΧΗΣ',        key:'supply',    width:18},
+    {header:'ΤΥΠΟΣ',              key:'type',      width:12},
+    {header:'MASTER',             key:'master',    width:14},
+    {header:'ΣΥΝΕΡΓΑΤΗΣ',         key:'dealer',    width:28},
+    {header:'ΟΝΟΜΑΤΕΠΩΝΥΜΟ',      key:'name',      width:30},
+    {header:'ΑΦΜ',                key:'afm',       width:13},
+    {header:'STATUS',             key:'status',    width:22},
+    {header:'ΗΜ. STATUS',         key:'statusDate',width:14},
+    {header:'ΚΑΤΑΣΤΑΣΗ ΠΛΗΡΩΜΗΣ', key:'state',     width:20},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΩΣ',       key:'feeType',   width:18},
+    {header:'ΠΡΟΓΡΑΜΜΑ ΑΜΟΙΒΗΣ',  key:'feeProg',   width:22},
+    {header:'ΠΛΗΡΩΘΗΚΕ ΜΗΝΕΣ',   key:'paidMo',    width:24},
+    {header:'CLAWBACK ΜΗΝΕΣ',     key:'clawMo',    width:24},
+    {header:'ΑΡΧΕΙΑ ΑΜΟΙΒΩΝ',    key:'paidIn',    width:36},
+    ...(showSent ? [
+      {header:'ΣΤΑΛΘΗΚΕ;',        key:'sent',      width:14},
+      {header:'ΑΡΧΕΙΑ ΣΤΟΛΗΣ',   key:'sentIn',    width:36},
+    ] : []),
+    {header:'ΣΥΜΠΕΡΑΣΜΑ',         key:'conclusion',width:46},
+  ];
+  ws2.getRow(1).height = 22;
+  ws2.getRow(1).eachCell(cell => {
     cell.font = {bold:true, color:{argb:'FFFFFFFF'}, size:11, name:'Calibri'};
     cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FF1A2744'}};
     cell.alignment = {vertical:'middle', horizontal:'center'};
@@ -2785,63 +2896,21 @@ async function exportAdhocResults(){
 
   const stateRank = (s) => s === 'unpaid' ? 0 : s === 'clawback' ? 1 : 2;
   const sorted = [...results].sort((a, b) => stateRank(a.payState) - stateRank(b.payState));
-
   sorted.forEach((r, i) => {
     const stateLbl = r.payState === 'paid' ? 'ΠΛΗΡΩΘΗΚΕ' : r.payState === 'clawback' ? 'CLAWBACK' : 'ΟΧΙ';
-    let conclusion;
-    if(r.payState === 'paid'){
-      conclusion = showSent && !r.sent ? 'Πληρώθηκε αλλά ΔΕΝ στάλθηκε στον συνεργάτη' : 'Πληρωμένη';
-    } else if(r.payState === 'clawback'){
-      conclusion = 'Ακυρώθηκε (επιστροφή αμοιβής)';
-    } else {
-      if(showSent && r.sent) conclusion = 'Στάλθηκε στον συνεργάτη αλλά δεν πληρώθηκε';
-      else if(showSent)      conclusion = 'ΟΥΤΕ στάλθηκε ΟΥΤΕ πληρώθηκε';
-      else                    conclusion = 'Δεν εντοπίστηκε σε αρχείο αμοιβών';
-    }
-
     const rowData = {
-      supply:     r.supply,
-      type:       r.type,
-      master:     r.master,
-      dealer:     r.dealer,
-      name:       r.name,
-      afm:        r.afm,
-      status:     r.status,
-      state:      stateLbl,
-      feeType:    r.feeType || '',
-      feeProg:    r.feeProg || '',
-      paidMo:     (r.paidMonths || []).join(' • '),
-      clawMo:     (r.clawMonths || []).join(' • '),
-      paidIn:     r.paidIn.map(e => e.file).join(' • '),
-      conclusion,
+      supply:  r.supply,    type:    r.type,    master:  r.master,
+      dealer:  r.dealer,    name:    r.name,    afm:     r.afm,
+      status:  r.status,   statusDate: r.statusDate || '',  state: stateLbl,  feeType: r.feeType || '',
+      feeProg: r.feeProg || '',
+      paidMo:  (r.paidMonths || []).join(' • '),
+      clawMo:  (r.clawMonths || []).join(' • '),
+      paidIn:  r.paidIn.map(e => e.file).join(' • '),
+      conclusion: _adhocConclusion(r, showSent),
     };
-    if(showSent){
-      rowData.sent   = r.sent ? 'ΝΑΙ' : 'ΟΧΙ';
-      rowData.sentIn = r.sentIn.join(' • ');
-    }
-
-    const row = ws.addRow(rowData);
-    row.height = 16;
-    row.eachCell({includeEmpty:true}, cell => {
-      cell.alignment = {vertical:'middle'};
-      if(r.payState === 'clawback'){
-        cell.font = {bold:true, color:{argb:'FFB91C1C'}, size:10, name:'Calibri'};
-        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEE2E2'}};
-      } else if(r.payState === 'paid'){
-        cell.font = {bold:true, color:{argb:'FF166534'}, size:10, name:'Calibri'};
-        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFDCFCE7'}};
-      } else {
-        cell.font = {size:10, name:'Calibri'};
-        const bg = i % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-        cell.fill = {type:'pattern', pattern:'solid', fgColor:{argb:bg}};
-      }
-    });
-    if(showSent && !r.sent && r.payState !== 'unpaid'){
-      // Highlight "paid but not sent" rows in yellow on the sent column
-      const c = row.getCell('sent');
-      c.fill = {type:'pattern', pattern:'solid', fgColor:{argb:'FFFEF3C7'}};
-      c.font = {bold:true, color:{argb:'FFB45309'}, size:10, name:'Calibri'};
-    }
+    if(showSent){ rowData.sent = r.sent ? 'ΝΑΙ' : 'ΟΧΙ'; rowData.sentIn = r.sentIn.join(' • '); }
+    const exRow = ws2.addRow(rowData);
+    _adhocStyleRow(exRow, r.payState, i, showSent, r);
   });
 
   const dt = new Date().toLocaleDateString('el-GR').replace(/\//g, '-');
