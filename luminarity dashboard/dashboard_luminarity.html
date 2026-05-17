@@ -6,6 +6,7 @@
 <title>Dashboard Αμοιβών ΔΕΗ – LUMINARITY</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
 <style>
 :root{
   --bg:#0f172a;--card:#1e293b;--border:#334155;
@@ -198,8 +199,12 @@ details.section > .section-body{padding:18px 20px 20px;border-top:1px solid var(
     <div class="upload-card">
       <h2>📂 ΑΡΧΕΙΑ LUMINARITY <span style="color:var(--muted);font-size:11px;font-weight:400">(προαιρετικό · πολλαπλά: 2025 + 2026)</span></h2>
       <p>Χρειάζεται μόνο αν θέλεις να αντιστοιχίσει Master / Συνεργάτη / Όνομα στις παροχές. Για απλό έλεγχο πληρωμών είναι προαιρετικό.<br>Για κάθε παροχή κρατείται μία γραμμή — η πιο πρόσφατη ημερομηνία.</p>
-      <input type="file" id="filesLum" accept=".xlsx,.xls,.xlsm" multiple onchange="loadLumFiles(this)">
+      <input type="file" id="filesLum" accept=".xlsx,.xls,.xlsm,.luminz" multiple onchange="loadLumFiles(this)">
       <div id="tagsLum" class="file-tag-list"></div>
+      <div id="lumSaveWrap" style="display:none;margin-top:8px">
+        <button class="btn" onclick="saveLuminz()" style="font-size:12px;padding:5px 12px;background:#1e3a5f;border:1px solid #38bdf8;color:#38bdf8" title="Αποθήκευση ως .luminz για γρήγορη επαναφόρτωση την επόμενη φορά">💾 Αποθήκευση ως .luminz</button>
+        <span style="font-size:11px;color:var(--muted);margin-left:8px">Φόρτωσε το .luminz αντί του Excel την επόμενη φορά — φορτώνει ακαριαία</span>
+      </div>
     </div>
 
     <div class="upload-card">
@@ -791,12 +796,15 @@ async function loadLumFiles(inp){
   if(!files.length) return;
   for(const file of files){
     try{
-      const data = await parseLumFile(file);
-      if(data){
-        // Replace if same name already loaded (re-uploading a file)
-        const existing = S.lumFiles.findIndex(f => f.name === file.name);
-        if(existing >= 0) S.lumFiles.splice(existing, 1, data);
-        else S.lumFiles.push(data);
+      if(file.name.endsWith('.luminz')){
+        await loadLuminzFile(file);
+      } else {
+        const data = await parseLumFile(file);
+        if(data){
+          const existing = S.lumFiles.findIndex(f => f.name === file.name);
+          if(existing >= 0) S.lumFiles.splice(existing, 1, data);
+          else S.lumFiles.push(data);
+        }
       }
     } catch(err){
       addLog('❌ Σφάλμα ' + file.name + ': ' + err.message, 'err');
@@ -805,6 +813,38 @@ async function loadLumFiles(inp){
   inp.value = '';
   tagLumProgressClear();
   rebuildLumState();
+}
+
+async function loadLuminzFile(file){
+  const buf = await file.arrayBuffer();
+  const decompressed = fflate.decompressSync(new Uint8Array(buf));
+  const json = new TextDecoder().decode(decompressed);
+  const savedFiles = JSON.parse(json);
+  for(const f of savedFiles){
+    const existing = S.lumFiles.findIndex(x => x.name === f.name);
+    if(existing >= 0) S.lumFiles.splice(existing, 1, f);
+    else S.lumFiles.push(f);
+  }
+  addLog(`<span class="ok">✓ ${file.name}</span> — ${savedFiles.reduce((s,f)=>s+f.rows.length,0)} εγγραφές (από .luminz cache)`);
+}
+
+function saveLuminz(){
+  if(!S.lumFiles.length){ alert('Δεν υπάρχουν LUMINARITY αρχεία φορτωμένα.'); return; }
+  try{
+    const json = JSON.stringify(S.lumFiles);
+    const encoded = new TextEncoder().encode(json);
+    const compressed = fflate.gzipSync(encoded, {level: 6});
+    const blob = new Blob([compressed], {type: 'application/octet-stream'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const names = S.lumFiles.map(f => f.name.replace(/\.[^.]+$/,'').replace(/\s+/g,'_')).join('+');
+    a.href = url;
+    a.download = `LUMINARITY_${names}.luminz`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(err){
+    alert('Σφάλμα αποθήκευσης: ' + err.message);
+  }
 }
 
 // Pre-built whitelist of expected LUMINARITY data sheet names. XLSX.read
@@ -1000,6 +1040,8 @@ function renderLumTags(){
   wrap.innerHTML = S.lumFiles.map((f, i) =>
     `<div class="file-tag">${f.name} <span class="badge">${f.rows.length}</span><button class="rm" onclick="removeLumFile(${i})" title="Αφαίρεση αρχείου">✕</button></div>`
   ).join('');
+  const saveWrap = document.getElementById('lumSaveWrap');
+  if(saveWrap) saveWrap.style.display = S.lumFiles.length > 0 ? '' : 'none';
 }
 
 function removeLumFile(idx){
@@ -1726,7 +1768,14 @@ async function exportFiltered(){
   const blob = new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href=url; a.download=`ΑΜΟΙΒΕΣ_ΦΙΛΤΡΟ_${dt}.xlsx`; a.click();
+  const fmParts = [
+    document.getElementById('fMaster').value,
+    document.getElementById('fDealer').value,
+    document.getElementById('fMonth').value,
+    document.getElementById('fTypeD').value,
+  ].filter(Boolean).map(s => s.replace(/\s+/g,'_').replace(/[^\wͰ-Ͽἀ-῿_\-]/g,''));
+  const fmSuffix = fmParts.length ? fmParts.join('_') : 'ΦΙΛΤΡΟ';
+  a.href=url; a.download=`ΑΜΟΙΒΕΣ_${fmSuffix}_${dt}.xlsx`; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -2914,11 +2963,15 @@ async function exportAdhocResults(){
   });
 
   const dt = new Date().toLocaleDateString('el-GR').replace(/\//g, '-');
+  const adhocNames = C.adhocFiles
+    .map(f => f.name.replace(/\.[^.]+$/, '').replace(/\s+/g,'_').substring(0, 30))
+    .join('+');
+  const adhocFilename = adhocNames ? `ΕΛΕΓΧΟΣ_${adhocNames}_${dt}.xlsx` : `ΕΞΤΡΑ_ΕΛΕΓΧΟΣ_${dt}.xlsx`;
   const buf = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `ΕΞΤΡΑ_ΕΛΕΓΧΟΣ_${dt}.xlsx`; a.click();
+  a.href = url; a.download = adhocFilename; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -3319,9 +3372,13 @@ async function exportUnpaid(){
   });
 
   const dt = new Date().toLocaleDateString('el-GR').replace(/\//g, '-');
-  const fp = document.getElementById('fCheckPayment').value || 'unpaid';
+  const fp  = document.getElementById('fCheckPayment').value || 'unpaid';
   const tag = fp === 'paid' ? 'ΠΛΗΡΩΜΕΝΕΣ' : fp === 'all' ? 'ΟΛΕΣ_ΑΙΤΗΣΕΙΣ' : 'ΑΠΛΗΡΩΤΕΣ';
-  const filename = `${tag}_${dt}.xlsx`;
+  const chkParts = [
+    document.getElementById('fCheckMaster').value,
+    document.getElementById('fCheckDealer').value,
+  ].filter(Boolean).map(s => s.replace(/\s+/g,'_').replace(/[^\wͰ-Ͽἀ-῿_\-]/g,''));
+  const filename = [tag, ...chkParts, dt].join('_') + '.xlsx';
 
   const buf  = await wb.xlsx.writeBuffer();
   const blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
